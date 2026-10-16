@@ -15,8 +15,8 @@ import plotly.express as px
 import streamlit as st
 
 from chainscope import (
-    api, compare, config, converter, demo, formatting, portfolio,
-    report, search, watchlist,
+    api, compare, config, converter, demo, formatting, indicators,
+    portfolio, report, search, watchlist,
 )
 
 # ---------------------------------------------------------------------------
@@ -60,6 +60,9 @@ def cached_usd_idr_rate() -> float:
 def cached_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
     return api.fetch_price_history(coin_id, vs_currency, days)
 
+@st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
+def cached_ohlc(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
+    return api.fetch_ohlc(coin_id, vs_currency, days)
 
 # ---------------------------------------------------------------------------
 # UI - Header & Sidebar
@@ -138,6 +141,15 @@ if data_source == "DEMO":
     )
 else:
     st.success(f"✅ Data live dari CoinGecko (Top {len(market_df)} koin, {currency}).")
+    if data_source == "LIVE":
+        with st.expander("ℹ️ Info penyimpanan (klik untuk detail)"):
+            st.caption(
+            "Watchlist dan portofolio disimpan di file lokal. Jika aplikasi "
+            "ini di-deploy di Streamlit Community Cloud (versi gratis), "
+            "kedua data tersebut akan **reset** setiap kali aplikasi di-restart "
+            "atau di-redeploy. Untuk penyimpanan permanen, versi berikutnya "
+            "akan memakai database cloud."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +170,7 @@ unit_label = f"Harga ({currency})"
 
 (
     tab_summary,
+    tab_technical,
     tab_compare,
     tab_portfolio,
     tab_converter,
@@ -167,6 +180,7 @@ unit_label = f"Harga ({currency})"
 ) = st.tabs(
     [
         "📊 Ringkasan",
+        "📉 Teknikal",
         "📈 Perbandingan",
         "💼 Portofolio",
         "💱 Konverter",
@@ -513,7 +527,294 @@ with tab_portfolio:
             + (" (kurs tetap — Mode Demo)" if demo_mode else " (live dari CoinGecko)")
         )
 
+# ===========================================================================
+# TAB 2 - Analisis Teknikal
+# ===========================================================================
 
+with tab_technical:
+    st.subheader("📉 Analisis Teknikal")
+    st.caption(
+        "Analisis harga dengan candlestick, moving average, Bollinger Bands, "
+        "dan RSI. Cocok untuk mengidentifikasi tren dan momentum."
+    )
+
+    # --- Pilihan koin & timeframe ---
+    id_to_label_t = dict(zip(market_df["id"], market_df["label"]))
+    label_to_id_t = dict(zip(market_df["label"], market_df["id"]))
+
+    col_coin, col_tf, col_mode = st.columns([3, 2, 2])
+    with col_coin:
+        tech_label = st.selectbox(
+            "Koin:",
+            options=market_df["label"].tolist(),
+            index=0,
+            key="tech_coin",
+        )
+    with col_tf:
+        # CoinGecko OHLC hanya menerima days tertentu
+        TF_OPTIONS = {
+            "1 jam": 1,
+            "24 jam": 1,
+            "7 hari": 7,
+            "30 hari": 30,
+            "90 hari": 90,
+            "1 tahun": 365,
+        }
+        tech_tf_label = st.selectbox(
+            "Timeframe:",
+            options=list(TF_OPTIONS.keys()),
+            index=2,
+            key="tech_tf",
+        )
+    with col_mode:
+        chart_mode = st.radio(
+            "Mode grafik:",
+            options=["Line", "Candlestick"],
+            horizontal=True,
+            key="tech_mode",
+        )
+
+    tech_id = label_to_id_t[tech_label]
+    tech_tf_days = TF_OPTIONS[tech_tf_label]
+
+    # --- Indikator toggles ---
+    with st.expander("Indikator", expanded=True):
+        c1, c2, c3, c4, c5 = st.columns(5)
+        with c1:
+            show_ma20 = st.checkbox("MA20", value=True)
+        with c2:
+            show_ma50 = st.checkbox("MA50", value=False)
+        with c3:
+            show_bb = st.checkbox("Bollinger Bands", value=False)
+        with c4:
+            sub_chart = st.selectbox(
+                "Sub-chart:", ["RSI", "Volume", "Tidak ada"], index=0
+            )
+        with c5:
+            log_scale = st.checkbox("Skala log", value=False)
+
+    # --- Ambil data ---
+    tech_history = None
+    tech_ohlc = None
+
+    if demo_mode:
+        row = market_df[market_df["id"] == tech_id].iloc[0]
+        tech_history = demo.get_demo_price_history(
+            float(row.get("current_price", 100.0))
+        )
+        # Buat OHLC sintetis dari line
+        tech_ohlc = tech_history.copy()
+        tech_ohlc = tech_ohlc.rename(columns={"price": "close"})
+        tech_ohlc["open"] = tech_ohlc["close"].shift(1).fillna(tech_ohlc["close"])
+        tech_ohlc["high"] = tech_ohlc[["open", "close"]].max(axis=1) * 1.005
+        tech_ohlc["low"] = tech_ohlc[["open", "close"]].min(axis=1) * 0.995
+        tech_history["volume"] = None
+    else:
+        try:
+            tech_history = cached_price_history(tech_id, currency, tech_tf_days)
+        except api.ChainScopeAPIError as exc:
+            st.error(f"Gagal mengambil data harga: {exc}")
+        try:
+            if chart_mode == "Candlestick":
+                tech_ohlc = cached_ohlc(tech_id, currency, tech_tf_days)
+        except api.ChainScopeAPIError as exc:
+            st.warning(f"OHLC tidak tersedia: {exc}. Menampilkan mode Line.")
+
+    # --- Grafik utama ---
+    if tech_history is None or tech_history.empty:
+        st.info("Data teknikal tidak tersedia.")
+    else:
+        history = tech_history.copy()
+
+        # Hitung indikator
+        history["ma20"] = indicators.sma(history["price"], 20)
+        history["ma50"] = indicators.sma(history["price"], 50)
+        bb_mid, bb_upper, bb_lower = indicators.bollinger_bands(
+            history["price"], window=20, num_std=2
+        )
+        history["bb_mid"] = bb_mid
+        history["bb_upper"] = bb_upper
+        history["bb_lower"] = bb_lower
+        history["rsi"] = indicators.rsi(history["price"], 14)
+
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        # Layout: 1 baris untuk harga, 1 baris untuk sub-chart (jika ada)
+        if sub_chart == "Tidak ada":
+            fig_t = make_subplots(
+                rows=1, cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.05,
+            )
+        else:
+            fig_t = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.05,
+                row_heights=[0.7, 0.3],
+            )
+
+        # --- Chart utama: Line atau Candlestick ---
+        use_candle = (
+            chart_mode == "Candlestick"
+            and tech_ohlc is not None
+            and not tech_ohlc.empty
+        )
+
+        if use_candle:
+            fig_t.add_trace(
+                go.Candlestick(
+                    x=tech_ohlc["waktu"],
+                    open=tech_ohlc["open"],
+                    high=tech_ohlc["high"],
+                    low=tech_ohlc["low"],
+                    close=tech_ohlc["close"],
+                    name="OHLC",
+                    increasing_line_color="#2ca02c",
+                    decreasing_line_color="#d62728",
+                ),
+                row=1, col=1,
+            )
+        else:
+            fig_t.add_trace(
+                go.Scatter(
+                    x=history["waktu"],
+                    y=history["price"],
+                    mode="lines",
+                    name="Harga",
+                    line=dict(color="#1f77b4", width=2),
+                ),
+                row=1, col=1,
+            )
+
+        # --- Overlay indikator ---
+        if show_ma20:
+            fig_t.add_trace(
+                go.Scatter(
+                    x=history["waktu"], y=history["ma20"],
+                    mode="lines", name="MA20",
+                    line=dict(color="#ff7f0e", width=1.5),
+                ),
+                row=1, col=1,
+            )
+        if show_ma50:
+            fig_t.add_trace(
+                go.Scatter(
+                    x=history["waktu"], y=history["ma50"],
+                    mode="lines", name="MA50",
+                    line=dict(color="#9467bd", width=1.5),
+                ),
+                row=1, col=1,
+            )
+        if show_bb:
+            fig_t.add_trace(
+                go.Scatter(
+                    x=history["waktu"], y=history["bb_upper"],
+                    mode="lines", name="BB Upper",
+                    line=dict(color="rgba(128,128,128,0.6)", width=1),
+                ),
+                row=1, col=1,
+            )
+            fig_t.add_trace(
+                go.Scatter(
+                    x=history["waktu"], y=history["bb_lower"],
+                    mode="lines", name="BB Lower",
+                    line=dict(color="rgba(128,128,128,0.6)", width=1),
+                    fill="tonexty",
+                    fillcolor="rgba(128,128,128,0.1)",
+                ),
+                row=1, col=1,
+            )
+
+        # --- Sub-chart ---
+        if sub_chart == "RSI":
+            fig_t.add_trace(
+                go.Scatter(
+                    x=history["waktu"], y=history["rsi"],
+                    mode="lines", name="RSI(14)",
+                    line=dict(color="#8c564b", width=1.5),
+                ),
+                row=2, col=1,
+            )
+            # Garis referensi 70/30
+            fig_t.add_hline(
+                y=70, line_dash="dash", line_color="red",
+                opacity=0.5, row=2, col=1,
+            )
+            fig_t.add_hline(
+                y=30, line_dash="dash", line_color="green",
+                opacity=0.5, row=2, col=1,
+            )
+            fig_t.update_yaxes(range=[0, 100], row=2, col=1, title_text="RSI")
+
+        elif sub_chart == "Volume":
+            if "volume" in history.columns and history["volume"].notna().any():
+                fig_t.add_trace(
+                    go.Bar(
+                        x=history["waktu"], y=history["volume"],
+                        name="Volume",
+                        marker_color="#7f7f7f",
+                    ),
+                    row=2, col=1,
+                )
+                fig_t.update_yaxes(title_text="Volume", row=2, col=1)
+            else:
+                fig_t.add_annotation(
+                    text="Volume tidak tersedia",
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.15,
+                    showarrow=False,
+                )
+
+        # --- Skala log ---
+        if log_scale:
+            fig_t.update_yaxes(type="log", row=1, col=1)
+
+        # --- Layout ---
+        fig_t.update_layout(
+            title=f"{tech_label} — {tech_tf_label} ({currency})",
+            xaxis_rangeslider_visible=False,
+            hovermode="x unified",
+            height=620 if sub_chart != "Tidak ada" else 460,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        )
+        st.plotly_chart(fig_t, width="stretch")
+
+        # --- Info indikator terkini ---
+        st.markdown("#### Nilai Indikator Terkini")
+        last = history.iloc[-1]
+        c_i1, c_i2, c_i3, c_i4 = st.columns(4)
+        c_i1.metric("Harga", formatting.format_money(last["price"], currency))
+        c_i2.metric(
+            "MA20",
+            formatting.format_money(last["ma20"], currency)
+            if pd.notna(last["ma20"]) else "—",
+        )
+        c_i3.metric(
+            "MA50",
+            formatting.format_money(last["ma50"], currency)
+            if pd.notna(last["ma50"]) else "—",
+        )
+        rsi_val = last["rsi"]
+        rsi_status = (
+            "Overbought" if rsi_val > 70
+            else "Oversold" if rsi_val < 30
+            else "Netral"
+        )
+        c_i4.metric(
+            "RSI(14)",
+            f"{rsi_val:.1f}",
+            delta=rsi_status,
+            delta_color="off",
+        )
+
+        st.caption(
+            "RSI > 70 = overbought (potensi koreksi), "
+            "RSI < 30 = oversold (potensi rebound). "
+            "MA20 > MA50 = tren naik, sebaliknya tren turun. "
+            "Indikator bukan jaminan — selalu kombinasikan dengan analisis lain."
+        )
 
 # ===========================================================================
 # TAB 2 - Perbandingan Multi-Koin

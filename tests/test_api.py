@@ -60,14 +60,19 @@ def test_fetch_price_history_returns_dataframe(mock_get):
         "prices": [
             [1700000000000, 83000.0],
             [1700003600000, 83100.0],
-        ]
+        ],
+        "total_volumes": [
+            [1700000000000, 1_000_000.0],
+            [1700003600000, 1_100_000.0],
+        ],
     }
     mock_get.return_value = mock_resp
 
     df = api.fetch_price_history("bitcoin", "usd", days=7)
     assert isinstance(df, pd.DataFrame)
-    assert list(df.columns) == ["waktu", "price"]
+    assert list(df.columns) == ["waktu", "price", "volume"]
     assert len(df) == 2
+    assert df.iloc[0]["volume"] == 1_000_000.0
 
 
 @patch("chainscope.api.requests.get")
