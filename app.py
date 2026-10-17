@@ -15,8 +15,8 @@ import plotly.express as px
 import streamlit as st
 
 from chainscope import (
-    api, compare, config, converter, demo, formatting, indicators,
-    portfolio, report, search, watchlist,
+    api, auth, compare, config, converter, db, demo, formatting, 
+    indicators, portfolio, report, search, watchlist,
 )
 
 # ---------------------------------------------------------------------------
@@ -65,6 +65,18 @@ def cached_ohlc(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
     return api.fetch_ohlc(coin_id, vs_currency, days)
 
 # ---------------------------------------------------------------------------
+# CEK AUTENTIKASI (Hentikan aplikasi jika belum login)
+# ---------------------------------------------------------------------------
+if "user" not in st.session_state or st.session_state.user is None:
+    auth.show_auth_page()
+    st.stop()  # Aplikasi berhenti di sini jika belum login
+
+user = st.session_state.user
+user_profile = db.get_user_profile(user.id)
+is_dev = user_profile.get("role") == "dev"
+sub_tier = user_profile.get("subscription_tier", "free").title()
+
+# ---------------------------------------------------------------------------
 # UI - Header & Sidebar
 # ---------------------------------------------------------------------------
 
@@ -76,7 +88,25 @@ st.caption(
 
 with st.sidebar:
     st.header("Pengaturan")
+    st.caption(f"Login sebagai: **{user.email}**")
+    
+    # --- Info Langganan ---
+    end_date = user_profile.get("subscription_end")
+    if end_date:
+        end_date = end_date[:10] # Ambil tanggalnya saja (YYYY-MM-DD)
+        st.info(f"🌟 Plan: **{sub_tier}**\n\nAktif s/d: **{end_date}**")
+    else:
+        st.info(f"🌟 Plan: **{sub_tier}**")
+        
+    if is_dev:
+        st.success("👑 Dev Mode")
+    
+    if st.button("🚪 Logout"):
+        auth.logout_user()
+        
+    st.markdown("---")
 
+    # (Di bawah ini adalah kode sidebar lamamu: currency = st.radio(... dst)
     currency = st.radio(
         "Mata uang:",
         options=list(config.CURRENCY_OPTIONS.keys()),
@@ -167,28 +197,23 @@ unit_label = f"Harga ({currency})"
 # Tabs
 # ---------------------------------------------------------------------------
 
+tabs_list = st.tabs([
+    "📊 Ringkasan", "📒 Journal", "🔔 Alerts", "📉 Teknikal", "📈 Perbandingan",
+    "💼 Portofolio", "💱 Konverter", "⭐ Watchlist", "🚀 Gainers & Losers", "📄 Laporan PDF",
+    "👑 Admin Panel"
+])
 
-(
-    tab_summary,
-    tab_technical,
-    tab_compare,
-    tab_portfolio,
-    tab_converter,
-    tab_watchlist,
-    tab_movers,
-    tab_report,
-) = st.tabs(
-    [
-        "📊 Ringkasan",
-        "📉 Teknikal",
-        "📈 Perbandingan",
-        "💼 Portofolio",
-        "💱 Konverter",
-        "⭐ Watchlist",
-        "🚀 Gainers & Losers",
-        "📄 Laporan PDF",
-    ]
-)
+tab_summary = tabs_list[0]
+tab_journal = tabs_list[1]
+tab_alerts = tabs_list[2]     # <-- TAB BARU
+tab_technical = tabs_list[3]
+tab_compare = tabs_list[4]
+tab_portfolio = tabs_list[5]
+tab_converter = tabs_list[6]
+tab_watchlist = tabs_list[7]
+tab_movers = tabs_list[8]
+tab_report = tabs_list[9]
+tab_admin = tabs_list[10]
 
 # ===========================================================================
 # TAB 1 - Ringkasan
@@ -313,223 +338,317 @@ with tab_summary:
     )
 
 # ===========================================================================
+# TAB ALERTS (PRICE NOTIFICATION)
+# ===========================================================================
+with tab_alerts:
+    st.subheader("🔔 Price Alerts")
+    st.caption("Set target harga. Dapatkan notifikasi via Telegram saat harga tembus level target.")
+    
+    # --- Konfigurasi Telegram (Disimpan sementara di Session State) ---
+    with st.expander("⚙️ Pengaturan Telegram Bot", expanded=False):
+        st.markdown(
+            "1. Buat bot via **@BotFather** di Telegram.\n"
+            "2. Kirim pesan `/start` ke bot kamu.\n"
+            "3. Buka `https://api.telegram.org/bot<TOKEN>/getUpdates` untuk melihat Chat ID."
+        )
+        tg_token = st.text_input("Bot Token:", type="password", value=st.session_state.get("tg_token", ""))
+        tg_chat = st.text_input("Chat ID:", value=st.session_state.get("tg_chat", ""))
+        
+        if st.button("💾 Simpan Konfigurasi"):
+            st.session_state.tg_token = tg_token
+            st.session_state.tg_chat = tg_chat
+            st.success("Konfigurasi tersimpan di sesi ini.")
+            
+        if st.button("📨 Test Kirim Pesan"):
+            if not tg_token or not tg_chat:
+                st.error("Isi Token dan Chat ID dulu.")
+            else:
+                from chainscope import telegram
+                ok = telegram.send_message(tg_token, tg_chat, "✅ ChainScope ID: Koneksi Telegram Berhasil!")
+                if ok:
+                    st.success("Pesan test terkirim! Cek Telegram kamu.")
+                else:
+                    st.error("Gagal kirim. Pastikan Token & Chat ID benar.")
+
+    st.markdown("---")
+    
+    # --- Form Buat Alert Baru ---
+    st.markdown("### Buat Alert Baru")
+    with st.form("new_alert_form", clear_on_submit=True):
+        c1, c2, c3, c4 = st.columns([2, 1, 2, 1])
+        
+        alert_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
+        alert_cond = c2.selectbox("Kondisi", ["above", "below"], format_func=lambda x: "≥ Naik ke atas" if x == "above" else "≤ Turun ke bawah")
+        alert_price = c3.number_input("Target Harga", min_value=0.01, value=1000.0)
+        alert_cur = c4.selectbox("Mata Uang", ["USD", "IDR"])
+        
+        alert_note = st.text_input("Catatan (Opsional)", placeholder="Contoh: Jual 50% posisi di sini")
+        
+        if st.form_submit_button("➕ Tambah Alert"):
+            sym = market_df[market_df["id"]==alert_coin]["symbol_upper"].values[0]
+            db.add_alert(user.id, alert_coin, sym, alert_cond, alert_price, alert_cur, alert_note)
+            st.success("Alert berhasil dibuat!")
+            st.rerun()
+
+    # --- Daftar Alert Aktif ---
+    st.markdown("---")
+    st.markdown("### Daftar Alert")
+    
+    user_alerts = db.get_user_alerts(user.id)
+    if not user_alerts:
+        st.info("Belum ada alert yang dibuat.")
+    else:
+        for a in user_alerts:
+            # Status
+            status = "✅ TRIGGERED" if not a["is_active"] else "⏳ MENUNGGU"
+            if not a["is_active"] and a.get("triggered_at"):
+                status += f" ({a['triggered_at'][:10]})"
+                
+            col_info, col_del = st.columns([5, 1])
+            
+            with col_info:
+                cond_str = "≥" if a["condition"] == "above" else "≤"
+                st.markdown(f"**{a['symbol']}** {cond_str} **{a['target_price']:,.2f} {a['currency']}** — *{status}*")
+                if a.get("note"):
+                    st.caption(f"Catatan: {a['note']}")
+                    
+            with col_del:
+                if st.button("🗑️", key=f"del_{a['id']}"):
+                    db.delete_alert(a['id'])
+                    st.rerun()
+            st.markdown("---")
+
+    # --- Tombol Cek Manual ---
+    st.markdown("### Cek Alert Sekarang")
+    st.caption("Klik tombol ini untuk mengecek harga saat ini dan mengirim notifikasi jika target tercapai.")
+    
+    if st.button("🔍 Cek Alert Saat Ini", type="primary"):
+        tg_t = st.session_state.get("tg_token", "")
+        tg_c = st.session_state.get("tg_chat", "")
+        
+        if not tg_t or not tg_c:
+            st.warning("⚠️ Simpan Token dan Chat ID Telegram terlebih dahulu di menu atas.")
+        else:
+            from chainscope import telegram
+            triggered_count = 0
+            
+            for a in user_alerts:
+                if not a["is_active"]:
+                    continue # Skip yang sudah trigger
+                
+                # Dapatkan harga koin di market_df
+                coin_data = market_df[market_df["id"] == a["coin_id"]]
+                if coin_data.empty:
+                    continue # Koin tidak ada di Top-N saat ini
+                    
+                current_price = float(coin_data.iloc[0]["current_price"])
+                
+                # Cek apakah kondisi terpenuhi
+                is_hit = (
+                    (a["condition"] == "above" and current_price >= a["target_price"]) or
+                    (a["condition"] == "below" and current_price <= a["target_price"])
+                )
+                
+                if is_hit:
+                    # Kirim Telegram
+                    msg = (
+                        f"🚨 <b>ALERT TRIGGERED!</b> 🚨\n\n"
+                        f"<b>{a['symbol']}</b> telah menyentuh <b>{current_price:,.2f} {a['currency']}</b>\n"
+                        f"Target: {a['condition'].upper()} {a['target_price']:,.2f} {a['currency']}\n"
+                    )
+                    if a.get("note"):
+                        msg += f"📝 Catatan: {a['note']}\n"
+                        
+                    ok = telegram.send_message(tg_t, tg_c, msg)
+                    if ok:
+                        db.mark_alert_triggered(a["id"])
+                        triggered_count += 1
+            
+            if triggered_count > 0:
+                st.success(f"✅ {triggered_count} alert terpicu dan notifikasi terkirim ke Telegram!")
+                st.rerun()
+            else:
+                st.info("Belum ada harga yang menyentuh target alert kamu.")
+
+# ===========================================================================
 # TAB 3 - Portofolio
 # ===========================================================================
 
 with tab_portfolio:
-    st.subheader("💼 Portofolio Saya")
+    st.subheader("💼 Portofolio Otomatis")
     st.caption(
-        "Lacak nilai portofolio Anda. Harga beli diinput dalam USD "
-        "(denominasi umum crypto), nilai ditampilkan dalam mata uang "
-        "yang dipilih di sidebar. Data tersimpan di `portfolio.json`."
+        "Nilai dan P&L dihitung secara otomatis berdasarkan histori transaksi "
+        "di Trading Journal Anda."
     )
 
-    # --- Hitung kurs & portofolio ---
-    usd_idr_rate_pf = cached_usd_idr_rate()
-    if demo_mode:
-        usd_idr_rate_pf = float(config.DEMO_USD_TO_IDR)
-
-    holdings = portfolio.load_holdings()
-
-    # --- Form tambah / perbarui holding ---
-    st.markdown("### Tambah / Perbarui Holding")
-
-    coin_options_pf = market_df["id"].tolist()
-    id_to_label_pf = dict(zip(market_df["id"], market_df["label"]))
-
-    with st.form("portfolio_form", clear_on_submit=False):
-        col_c, col_a, col_p = st.columns([3, 2, 2])
-        with col_c:
-            pf_coin = st.selectbox(
-                "Koin:",
-                options=coin_options_pf,
-                format_func=lambda cid: id_to_label_pf.get(cid, cid),
-            )
-        with col_a:
-            pf_amount = st.number_input(
-                "Jumlah (unit koin):",
-                min_value=0.0,
-                value=1.0,
-                step=0.01,
-                format="%.8f",
-            )
-        with col_p:
-            pf_buy_price = st.number_input(
-                "Harga beli rata-rata (USD):",
-                min_value=0.0,
-                value=0.0,
-                step=100.0,
-                format="%.2f",
-                help="Isi 0 jika tidak ingin menghitung P&L.",
-            )
-
-        submitted = st.form_submit_button("➕ Simpan Holding")
-
-        if submitted:
-            if pf_amount <= 0:
-                st.error("Jumlah harus lebih besar dari 0.")
-            else:
-                portfolio.add_or_update_holding(
-                    pf_coin, pf_amount, pf_buy_price
-                )
-                st.success(
-                    f"Holding {id_to_label_pf.get(pf_coin, pf_coin)} "
-                    f"tersimpan."
-                )
-                st.rerun()
-
-    # --- Tampilkan portofolio ---
-    st.markdown("---")
-
-    if not holdings:
-        st.info(
-            "Portofolio masih kosong. Tambahkan holding di form di atas."
-        )
+    # 1. Ambil data trades dari database
+    trades = db.get_user_trades(user.id)
+    
+    if not trades:
+        st.info("Belum ada transaksi di Trading Journal. Silakan isi tab 📒 Journal terlebih dahulu.")
     else:
-        pf_df = portfolio.compute_portfolio(
-            holdings, market_df, usd_idr_rate_pf, currency
-        )
+        # 2. Hitung portofolio
+        from chainscope import journal_calc
+        pf_df = journal_calc.calculate_portfolio_from_trades(trades)
 
-        # --- Hitung total ---
-        valid = pf_df[pf_df["found"] & pf_df["current_value"].notna()]
-        total_value = float(valid["current_value"].sum()) if not valid.empty else 0.0
-        total_invested = float(valid["invested"].sum()) if not valid.empty else 0.0
-        total_pnl = total_value - total_invested
-        total_pnl_pct = (
-            total_pnl / total_invested * 100.0 if total_invested > 0 else None
-        )
-
-        # --- Kartu ringkasan ---
-        col1, col2, col3 = st.columns(3)
-        col1.metric(
-            "Nilai Portofolio",
-            formatting.format_money(total_value, currency),
-        )
-        col2.metric(
-            "Total Modal",
-            formatting.format_money(total_invested, currency),
-        )
-        delta_str = (
-            f"{formatting.format_money(total_pnl, currency)}"
-            f" ({formatting.format_percent(total_pnl_pct)})"
-            if total_pnl_pct is not None
-            else formatting.format_money(total_pnl, currency)
-        )
-        col3.metric("P&L", formatting.format_money(total_pnl, currency), delta=delta_str)
-
-        # --- Tabel holding ---
-        st.markdown("### Rincian Holding")
-
-        display_rows = []
-        for _, row in pf_df.iterrows():
-            if not row["found"]:
-                display_rows.append({
-                    "Koin": row["name"],
-                    "Jumlah": f"{row['amount']:.8f}",
-                    "Harga Beli": formatting.format_money(
-                        row["buy_price"], currency
-                    ),
-                    "Harga Kini": "—",
-                    "Nilai Kini": "—",
-                    "P&L": "—",
-                    "P&L (%)": "—",
-                })
-                continue
-
-            pnl_display = (
-                formatting.format_money(row["pnl"], currency)
-                if row["pnl"] is not None
-                else "—"
+        if pf_df.empty:
+            st.warning("Semua aset Anda sudah terjual (saldo 0).")
+        else:
+            # 3. Gabungkan dengan data harga saat ini (market_df)
+            # Kita perlu tahu harga terkini untuk menghitung P&L
+            pf_df = pf_df.merge(
+                market_df[["id", "current_price", "name"]], 
+                left_on="coin_id", right_on="id", how="left"
             )
-            pnl_pct_display = (
-                formatting.format_percent(row["pnl_pct"])
-                if row["pnl_pct"] is not None
-                else "—"
+            
+            # 4. Kalkulasi Nilai & P&L
+            usd_idr_rate_pf = cached_usd_idr_rate()
+            if demo_mode:
+                usd_idr_rate_pf = float(config.DEMO_USD_TO_IDR)
+
+            # Jika mata uang IDR, konversi semua angka
+            rate = usd_idr_rate_pf if currency == "IDR" else 1.0
+
+                        # Harga dari market_df SUDAH dalam bentuk IDR/USD, jadi jangan dikali rate lagi!
+            pf_df["current_price"] = pf_df["current_price"].fillna(0)
+            
+            # Harga dari database Trading Journal masih USD, jadi HARUS dikali rate
+            pf_df["avg_buy_price"] = pf_df["avg_buy_price_usd"] * rate
+            pf_df["invested"] = pf_df["total_invested_usd"] * rate
+            pf_df["current_value"] = pf_df["amount"] * pf_df["current_price"]
+            pf_df["pnl"] = pf_df["current_value"] - pf_df["invested"]
+            pf_df["pnl_pct"] = (pf_df["pnl"] / pf_df["invested"] * 100).fillna(0)
+
+            # 5. Kartu Ringkasan
+            total_val = pf_df["current_value"].sum()
+            total_inv = pf_df["invested"].sum()
+            total_pnl = total_val - total_inv
+            total_pnl_pct = (total_pnl / total_inv * 100) if total_inv > 0 else 0
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Nilai Portofolio", formatting.format_money(total_val, currency))
+            col2.metric("Total Modal", formatting.format_money(total_inv, currency))
+            col3.metric(
+                "P&L Keseluruhan", 
+                formatting.format_money(total_pnl, currency),
+                delta=f"{formatting.format_percent(total_pnl_pct)}"
             )
 
-            display_rows.append({
-                "Koin": f"{row['name']} ({row['symbol']})",
-                "Jumlah": f"{row['amount']:.8f}",
-                "Harga Beli": formatting.format_money(row["buy_price"], currency),
-                "Harga Kini": formatting.format_money(row["current_price"], currency),
-                "Nilai Kini": formatting.format_money(row["current_value"], currency),
-                "P&L": pnl_display,
-                "P&L (%)": pnl_pct_display,
+            # 6. Tabel Portofolio
+            st.markdown("### Rincian Aset")
+            display_df = pd.DataFrame({
+                "Koin": pf_df["name"] + " (" + pf_df["symbol"] + ")",
+                "Jumlah": pf_df["amount"].map(lambda x: f"{x:.8f}"),
+                "Harga Rata-rata": pf_df["avg_buy_price"].map(lambda v: formatting.format_money(v, currency)),
+                "Harga Kini": pf_df["current_price"].map(lambda v: formatting.format_money(v, currency)),
+                "Nilai Kini": pf_df["current_value"].map(lambda v: formatting.format_money(v, currency)),
+                "P&L": pf_df["pnl"].map(lambda v: formatting.format_money(v, currency)),
+                "P&L (%)": pf_df["pnl_pct"].map(formatting.format_percent),
             })
+            st.dataframe(display_df, width="stretch", hide_index=True)
 
-        st.dataframe(
-            pd.DataFrame(display_rows),
-            width="stretch",
-            hide_index=True,
-        )
-
-        # --- Pie chart alokasi ---
-        if not valid.empty:
-            st.markdown("### Alokasi Portofolio")
-
-            pie_df = valid.copy()
-            pie_df["label_full"] = (
-                pie_df["name"] + " (" + pie_df["symbol"] + ")"
-            )
+            # 7. Pie Chart
             fig_pie = px.pie(
-                pie_df,
-                values="current_value",
-                names="label_full",
-                title=f"Alokasi berdasarkan nilai ({currency})",
-                hole=0.4,
+                pf_df, values="current_value", names="name",
+                title=f"Alokasi Aset ({currency})", hole=0.4
             )
-            fig_pie.update_traces(textposition="inside", textinfo="percent+label")
             st.plotly_chart(fig_pie, width="stretch")
-
-        # --- Ekspor CSV portofolio ---
-        csv_pf = pd.DataFrame({
-            "Nama": pf_df["name"],
-            "Simbol": pf_df["symbol"],
-            "Jumlah": pf_df["amount"],
-            f"harga_beli_{currency.lower()}": pf_df["buy_price"],
-            f"harga_kini_{currency.lower()}": pf_df["current_price"],
-            f"nilai_kini_{currency.lower()}": pf_df["current_value"],
-            f"pnl_{currency.lower()}": pf_df["pnl"],
-            "pnl_persen": pf_df["pnl_pct"],
-        })
-        csv_pf_bytes = csv_pf.to_csv(index=False).encode("utf-8")
-        ts_pf = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        st.download_button(
-            label="⬇️ Unduh CSV Portofolio",
-            data=csv_pf_bytes,
-            file_name=f"chainscope_portfolio_{currency.lower()}_{ts_pf}.csv",
-            mime="text/csv",
-        )
-
-        # --- Tombol hapus ---
-        col_del1, col_del2 = st.columns([2, 2])
-        with col_del1:
-            coin_to_delete = st.selectbox(
-                "Hapus holding:",
-                options=["—"] + pf_df["coin_id"].tolist(),
-                format_func=lambda cid: "—"
-                if cid == "—"
-                else id_to_label_pf.get(cid, cid),
-            )
-            if st.button("🗑️ Hapus") and coin_to_delete != "—":
-                portfolio.remove_holding(coin_to_delete)
-                st.success(f"Holding dihapus.")
-                st.rerun()
-        with col_del2:
-            st.markdown("<div style='height: 30px'></div>", unsafe_allow_html=True)
-            if st.button("🗑️ Kosongkan Semua"):
-                portfolio.clear_holdings()
-                st.success("Portofolio dikosongkan.")
-                st.rerun()
-
-        st.caption(
-            f"💡 Kurs referensi: 1 USD ≈ Rp{usd_idr_rate_pf:,.0f}".replace(",", ".")
-            + (" (kurs tetap — Mode Demo)" if demo_mode else " (live dari CoinGecko)")
-        )
 
 # ===========================================================================
 # TAB 2 - Analisis Teknikal
 # ===========================================================================
+
+# ===========================================================================
+# TAB JOURNAL (Manual & CSV Import)
+# ===========================================================================
+with tab_journal:
+    st.subheader("📒 Trading Journal")
+    st.caption("Catat transaksi manual atau import dari CSV exchange.")
+    
+    col_manual, col_csv = st.columns(2)
+    
+    # A. Input Manual
+    with col_manual:
+        st.markdown("**Input Manual**")
+        with st.form("manual_trade_form", clear_on_submit=True):
+            c1, c2, c3 = st.columns(3)
+            t_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
+            t_side = c2.selectbox("Aksi", ["buy", "sell"])
+            t_date = c3.date_input("Tanggal", datetime.now())
+            
+            c4, c5 = st.columns(2)
+            t_amount = c4.number_input("Jumlah Koin", min_value=0.00000001, format="%.8f")
+            t_price = c5.number_input("Harga (USD)", min_value=0.01)
+            
+            if st.form_submit_button("Simpan Transaksi"):
+                sym = market_df[market_df["id"]==t_coin]["symbol_upper"].values[0]
+                db.add_trade(user.id, t_coin, sym, t_side, t_amount, t_price, str(t_date))
+                st.success("Transaksi tersimpan!")
+                st.rerun()
+
+    # B. CSV Import
+    with col_csv:
+        st.markdown("**Import CSV (Exchange)**")
+        uploaded_file = st.file_uploader("Pilih file CSV", type=["csv"])
+        if uploaded_file:
+            try:
+                df_csv = pd.read_csv(uploaded_file)
+                st.write("Pratinjau Data:", df_csv.head(3))
+                
+                # Pemetaan Kolom sederhana
+                st.markdown("**Pemetaan Kolom**")
+                col_options = df_csv.columns.tolist()
+                
+                map_coin = st.selectbox("Kolom Koin", col_options)
+                map_side = st.selectbox("Kolom Aksi (Buy/Sell)", col_options)
+                map_amount = st.selectbox("Kolom Jumlah", col_options)
+                map_price = st.selectbox("Kolom Harga", col_options)
+                map_date = st.selectbox("Kolom Tanggal", col_options)
+                
+                if st.button("Proses & Simpan CSV"):
+                    success_count = 0
+                    for _, row in df_csv.iterrows():
+                        c_id = str(row[map_coin]).lower()
+                        valid = market_df[market_df["id"].str.contains(c_id, case=False) | market_df["symbol"].str.contains(c_id, case=False)]
+                        if valid.empty:
+                            continue 
+                        
+                        real_id = valid.iloc[0]["id"]
+                        real_sym = valid.iloc[0]["symbol_upper"]
+                        
+                        db.add_trade(
+                            user.id, real_id, real_sym, 
+                            str(row[map_side]).lower(), 
+                            float(row[map_amount]), 
+                            float(row[map_price]), 
+                            str(row[map_date]), 
+                            source="csv"
+                        )
+                        success_count += 1
+                    st.success(f"Berhasil mengimport {success_count} transaksi!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Gagal membaca CSV: {e}")
+
+        # C. Riwayat Transaksi
+    st.markdown("---")
+    st.markdown("### Riwayat Transaksi")
+    trades = db.get_user_trades(user.id)
+    if not trades:
+        st.info("Belum ada transaksi.")
+    else:
+        df_trades = pd.DataFrame(trades)
+        df_trades["trade_time"] = pd.to_datetime(df_trades["trade_time"]).dt.date
+        st.dataframe(df_trades[["trade_time", "symbol", "side", "amount", "price_usd"]].rename(columns={
+            "trade_time": "Tanggal", "symbol": "Koin", "side": "Aksi", "amount": "Jumlah", "price_usd": "Harga (USD)"
+        }), width="stretch", hide_index=True)
+
+    # --- TOMBOL HAPUS (KODE YANG BENAR) ---
+    st.markdown("---")
+    if st.button("🗑️ Hapus Semua Transaksi", type="secondary", key="btn_hapus_journal"):
+        db.delete_all_user_trades(user.id)  # <-- Hapus tanda '=' dan teks anehnya
+        st.success("Semua transaksi berhasil dihapus.")
+        st.rerun()
 
 with tab_technical:
     st.subheader("📉 Analisis Teknikal")
@@ -537,6 +656,7 @@ with tab_technical:
         "Analisis harga dengan candlestick, moving average, Bollinger Bands, "
         "dan RSI. Cocok untuk mengidentifikasi tren dan momentum."
     )
+    
 
     # --- Pilihan koin & timeframe ---
     id_to_label_t = dict(zip(market_df["id"], market_df["label"]))
@@ -815,6 +935,13 @@ with tab_technical:
             "MA20 > MA50 = tren naik, sebaliknya tren turun. "
             "Indikator bukan jaminan — selalu kombinasikan dengan analisis lain."
         )
+
+    # Tambahkan di bagian paling bawah tab_journal:
+    st.markdown("---")
+    if st.button("🗑️ Hapus Semua Transaksi", type="secondary"):
+        db.delete_all_user_trades(user.id)
+        st.success("Semua transaksi berhasil dihapus.")
+        st.rerun()
 
 # ===========================================================================
 # TAB 2 - Perbandingan Multi-Koin
@@ -1402,6 +1529,75 @@ with tab_report:
         f"- Tabel top-N koin (N = pilihan di atas)\n"
         "- Disclaimer investasi"
     )
+
+# ===========================================================================
+# TAB ADMIN PANEL (KHUSUS DEV)
+# ===========================================================================
+with tab_admin:
+    if not is_dev:
+        st.error("⛔ Akses ditolak. Hanya untuk Developer.")
+    else:
+        from chainscope import admin
+        st.subheader("👑 Developer Admin Panel")
+        st.caption("Kelola user, role, dan status langganan.")
+        
+        # Ambil semua user
+        all_users = admin.get_all_users()
+        
+        if not all_users:
+            st.info("Belum ada user yang terdaftar.")
+        else:
+            import pandas as pd
+            
+            # Tampilkan Tabel Semua User
+            df_users = pd.DataFrame(all_users)
+            if "subscription_end" in df_users.columns:
+                df_users["subscription_end"] = df_users["subscription_end"].fillna("—").str[:10]
+                
+            display_cols = ["email", "role", "subscription_tier", "subscription_end"]
+            st.dataframe(df_users[display_cols].rename(columns={
+                "email": "Email", "role": "Role", "subscription_tier": "Plan", "subscription_end": "Berakhir Pada"
+            }), width="stretch", hide_index=True)
+            
+            st.markdown("---")
+            st.markdown("### Kelola User")
+            
+            # Pilih user yang ingin diedit
+            user_emails = [u["email"] for u in all_users]
+            selected_email = st.selectbox("Pilih user untuk diedit:", options=user_emails)
+            
+            if selected_email:
+                selected_user = next((u for u in all_users if u["email"] == selected_email), None)
+                uid = selected_user["id"]
+                
+                col_r, col_t, col_d = st.columns(3)
+                
+                with col_r:
+                    # Ubah Role
+                    current_role = selected_user.get("role", "user")
+                    new_role = st.selectbox("Role:", ["user", "dev"], index=0 if current_role == "user" else 1)
+                    if st.button("Update Role"):
+                        admin.update_user_role(uid, new_role)
+                        st.success("Role berhasil diupdate.")
+                        st.rerun()
+                        
+                with col_t:
+                    # Ubah Tier
+                    current_tier = selected_user.get("subscription_tier", "free")
+                    new_tier = st.selectbox("Langganan:", ["free", "premium"], index=0 if current_tier == "free" else 1)
+                    if st.button("Update Tier"):
+                        admin.update_user_subscription(uid, new_tier)
+                        st.success("Langganan berhasil diupdate.")
+                        st.rerun()
+                        
+                with col_d:
+                    # Ubah Tanggal Berakhir
+                    st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+                    new_end = st.date_input("Perpanjang s/d:")
+                    if st.button("Set Tanggal Expired"):
+                        admin.update_user_subscription(uid, new_tier, str(new_end))
+                        st.success("Masa aktif berhasil diperbarui.")
+                        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Footer
