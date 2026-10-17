@@ -1,108 +1,101 @@
-"""Modul untuk kustomisasi UI/UX Premium."""
+"""Modul untuk kustomisasi UI/UX Premium (Dark Terminal Style)."""
 import streamlit as st
 
 def apply_premium_theme():
-    """Menyuntikkan CSS kustom untuk tampilan Terminal Trading Premium."""
     st.markdown("""
     <style>
-    /* 1. Import Font Premium (Inter) */
+    /* 1. Font & Background Utama */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    html, body, [class*="css"] {
+    .stApp {
+        background-color: #0B0E14; /* Warna background utama */
         font-family: 'Inter', sans-serif;
     }
 
-    /* 2. Menghilangkan Padding Berlebih di Atas */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-    }
-
-    /* 3. Styling Kartu Metrik (st.metric) */
-    div[data-testid="metric-container"] {
+    /* 2. Sidebar Styling */
+    [data-testid="stSidebar"] {
         background-color: #131722;
-        border: 1px solid #2A2E39;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        border-right: 1px solid #1E222D;
+    }
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1rem;
     }
     
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-2px);
-        border-color: #2962FF;
+    /* Menyembunyikan label bawaan radio agar terlihat seperti menu */
+    [data-testid="stSidebar"] .stRadio > label {
+        display: none;
     }
-
-    /* Warna khusus untuk Delta (P&L) */
-    div[data-testid="metric-container"] div[data-testid="stMetricDelta"] > div {
-        font-weight: 600;
-    }
-
-    /* 4. Styling Tab (Menu Navigasi) */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #131722;
-        padding: 5px 10px;
+    
+    /* Styling tombol menu (Radio) di Sidebar */
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
+        padding: 10px 15px;
         border-radius: 8px;
-        border: 1px solid #2A2E39;
+        margin-bottom: 2px;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
+        background-color: #1E222D;
+    }
+    /* Menu yang aktif */
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] {
+        background-color: #1E3A8A;
+        border-left: 4px solid #2962FF;
     }
 
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 6px;
-        padding: 8px 16px;
-        color: #868B96;
-        font-weight: 500;
-        transition: all 0.2s ease;
+    /* 3. Menghilangkan Padding Berlebih & Margin di Atas */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 95% !important;
     }
-
-    .stTabs [aria-selected="true"] {
-        background-color: #2962FF !important;
+    
+    /* 4. Styling Judul & Teks */
+    h1, h2, h3, h4, h5, h6 {
         color: #FFFFFF !important;
+        font-weight: 600 !important;
+    }
+    p, span, div {
+        color: #D1D4DC;
     }
 
-    /* 5. Styling Tombol (Buttons) */
+    /* 5. Styling Kartu Metrik (Top 4 Cards) */
+    div[data-testid="metric-container"] {
+        background-color: #131722;
+        border: 1px solid #1E222D;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* 6. Styling Tabel (Dataframe) */
+    div[data-testid="stDataFrame"] {
+        background-color: #131722;
+        border-radius: 12px;
+        border: 1px solid #1E222D;
+        padding: 10px;
+    }
+
+    /* 7. Tombol Utama */
     .stButton > button {
         background-color: #2962FF;
         color: white;
         border-radius: 6px;
         border: none;
-        font-weight: 600;
-        transition: all 0.2s ease;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        width: 100%;
     }
-    
     .stButton > button:hover {
         background-color: #1E4BD8;
-        box-shadow: 0 0 10px rgba(41, 98, 255, 0.5);
         color: white;
-    }
-
-    /* Tombol Secondary (seperti Hapus) */
-    .stButton > button[kind="secondary"] {
-        background-color: transparent;
-        border: 1px solid #ef5350;
-        color: #ef5350;
-    }
-    .stButton > button[kind="secondary"]:hover {
-        background-color: #ef5350;
-        color: white;
-    }
-
-    /* 6. Styling Tabel / Dataframe */
-    div[data-testid="stDataFrame"] {
-        border-radius: 8px;
-        border: 1px solid #2A2E39;
-        overflow: hidden;
-    }
-
-    /* 7. Sidebar Styling */
-    [data-testid="stSidebar"] {
-        border-right: 1px solid #2A2E39;
     }
     
-    /* 8. Menghilangkan garis merah bawaan Streamlit */
-    hr {
-        margin: 1rem 0;
-        border-color: #2A2E39 !important;
-    }
+    /* Warna Font Custom */
+    .text-green { color: #00E676 !important; }
+    .text-red { color: #FF5252 !important; }
+    .text-muted { color: #868B96 !important; font-size: 0.85rem; }
     </style>
     """, unsafe_allow_html=True)
