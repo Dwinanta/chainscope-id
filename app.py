@@ -345,32 +345,32 @@ with tab_alerts:
     st.caption("Set target harga. Dapatkan notifikasi via Telegram saat harga tembus level target.")
     
     # --- Konfigurasi Telegram (Disimpan sementara di Session State) ---
-    with st.expander("⚙️ Pengaturan Telegram Bot", expanded=False):
+    with st.expander("⚙️ Hubungkan ke Telegram", expanded=False):
         st.markdown(
-            "1. Buat bot via **@BotFather** di Telegram.\n"
-            "2. Kirim pesan `/start` ke bot kamu.\n"
-            "3. Buka `https://api.telegram.org/bot<TOKEN>/getUpdates` untuk melihat Chat ID."
+            "1. Cari bot **@ChainScope_ID_Bot** (atau bot buatanmu) di Telegram.\n"
+            "2. Kirim pesan `/start`.\n"
+            "3. Buka `https://api.telegram.org/bot<TOKEN_BOT_KAMU>/getUpdates` untuk melihat Chat ID."
         )
-        tg_token = st.text_input("Bot Token:", type="password", value=st.session_state.get("tg_token", ""))
-        tg_chat = st.text_input("Chat ID:", value=st.session_state.get("tg_chat", ""))
         
-        if st.button("💾 Simpan Konfigurasi"):
-            st.session_state.tg_token = tg_token
-            st.session_state.tg_chat = tg_chat
-            st.success("Konfigurasi tersimpan di sesi ini.")
+        current_chat_id = user_profile.get("telegram_chat_id", "")
+        tg_chat = st.text_input("Chat ID Telegram Kamu:", value=current_chat_id)
+        
+        if st.button("💾 Simpan Chat ID"):
+            db.update_telegram_chat_id(user.id, tg_chat)
+            st.success("Chat ID tersimpan!")
+            st.rerun()
             
         if st.button("📨 Test Kirim Pesan"):
-            if not tg_token or not tg_chat:
-                st.error("Isi Token dan Chat ID dulu.")
+            if not tg_chat:
+                st.error("Isi Chat ID dulu.")
             else:
                 from chainscope import telegram
-                ok = telegram.send_message(tg_token, tg_chat, "✅ ChainScope ID: Koneksi Telegram Berhasil!")
+                global_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+                ok = telegram.send_message(global_token, tg_chat, "✅ ChainScope ID: Koneksi Telegram Berhasil!")
                 if ok:
                     st.success("Pesan test terkirim! Cek Telegram kamu.")
                 else:
-                    st.error("Gagal kirim. Pastikan Token & Chat ID benar.")
-
-    st.markdown("---")
+                    st.error("Gagal kirim. Pastikan Chat ID benar dan bot sudah di-start.")
     
     # --- Form Buat Alert Baru ---
     st.markdown("### Buat Alert Baru")
