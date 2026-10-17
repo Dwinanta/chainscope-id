@@ -91,3 +91,29 @@ def get_all_active_alerts():
     supabase = get_supabase()
     res = supabase.table("alerts").select("*").eq("is_active", True).execute()
     return res.data
+# ==========================================
+# FUNGSI UNTUK WATCHLIST (SUPABASE)
+# ==========================================
+
+def get_user_watchlist(user_id: str) -> list[str]:
+    supabase = get_supabase()
+    res = supabase.table("watchlists").select("coin_id").eq("user_id", user_id).execute()
+    return [row["coin_id"] for row in res.data]
+
+def add_to_watchlist(user_id: str, coin_id: str):
+    supabase = get_supabase()
+    try:
+        supabase.table("watchlists").upsert({
+            "user_id": user_id, 
+            "coin_id": coin_id
+        }).execute()
+    except Exception as e:
+        print(f"Error add watchlist: {e}")
+
+def remove_from_watchlist(user_id: str, coin_id: str):
+    supabase = get_supabase()
+    return supabase.table("watchlists").delete().eq("user_id", user_id).eq("coin_id", coin_id).execute()
+
+def clear_user_watchlist(user_id: str):
+    supabase = get_supabase()
+    return supabase.table("watchlists").delete().eq("user_id", user_id).execute()
