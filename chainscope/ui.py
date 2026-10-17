@@ -3,6 +3,24 @@ import streamlit as st
 
 def apply_premium_theme():
     st.markdown("""
+        /* Styling Logo Sidebar */
+    .sidebar-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0px 20px 0px;
+        border-bottom: 1px solid #1E222D;
+        margin-bottom: 20px;
+    }
+    .sidebar-logo h2 {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #2962FF;
+    }
+    .sidebar-logo span {
+        color: #FFFFFF;
+    }
     <style>
     /* 1. Font & Background Utama */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
