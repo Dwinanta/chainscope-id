@@ -2,8 +2,9 @@
 gatherUsageStats = false
 
 [theme]
-primaryColor = "#1f77b4"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#262730"
+base = "dark"
+primaryColor = "#2962FF"        # Biru elektrik untuk aksen
+backgroundColor = "#0B0E14"     # Hitam kebiruan (sangat gelap)
+secondaryBackgroundColor = "#131722" # Abu-abu gelap untuk sidebar & card
+textColor = "#D1D4DC"           # Putih keabu-abuan (nyaman di mata)
 font = "sans serif"

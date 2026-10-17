@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from chainscope import ui
 
 from chainscope import (
     api, auth, compare, config, converter, db, demo, formatting, 
@@ -28,6 +29,12 @@ st.set_page_config(
     page_icon="📈",
     layout="wide",
 )
+st.set_page_config(page_title="ChainScope ID", page_icon="📈", layout="wide")
+
+# Terapkan Tema Premium
+ui.apply_premium_theme()
+
+# ... sisa kode di bawahnya ...
 
 
 # ---------------------------------------------------------------------------
