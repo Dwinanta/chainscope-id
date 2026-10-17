@@ -145,11 +145,12 @@ if menu == "🏠 Ringkasan":
                 <span style='color:{color}; font-size:0.9rem;'>{icon} {row['price_change_percentage_24h']:.2f}% (24h)</span>
                 """, unsafe_allow_html=True)
                 
-                # Sparkline
-                hist = demo.get_demo_price_history(row['current_price']) if demo_mode else cached_price_history(row['id'], currency, 1)
-                fig = go.Figure(go.Scatter(x=hist['waktu'], y=hist['price'], mode='lines', line=dict(color=color, width=1.5)))
-                fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=50, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                                # Sparkline (Langsung ambil dari data market_df, tidak perlu request API baru)
+                sparkline_prices = row.get("sparkline_in_7d", {}).get("price", [])
+                if sparkline_prices:
+                    fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
+                    fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=50, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -168,15 +169,19 @@ if menu == "🏠 Ringkasan":
             days = days_map[timeframe]
             
             cid = dict(zip(market_df["label"], market_df["id"]))[chart_coin]
-            hist_df = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, days)
             
-            fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#2962FF'])
-            fig_main.update_layout(
-                margin=dict(l=0, r=0, t=10, b=0), height=350,
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96')
-            )
-            st.plotly_chart(fig_main, use_container_width=True)
+            try:
+                hist_df = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, days)
+                
+                fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#2962FF'])
+                fig_main.update_layout(
+                    margin=dict(l=0, r=0, t=10, b=0), height=350,
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96')
+                )
+                st.plotly_chart(fig_main, use_container_width=True)
+            except Exception as e:
+                st.warning("⚠️ Grafik sedang tidak dapat dimuat karena batas API CoinGecko. Silakan coba beberapa saat lagi atau gunakan Mode Demo.")
 
     with col_movers:
         with st.container(border=True):

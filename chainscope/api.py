@@ -19,6 +19,7 @@ def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
         "per_page": limit,
         "page": 1,
         "price_change_percentage": "24h",
+        "sparkline": "true",
     }
     try:
         response = requests.get(url, params=params, timeout=config.REQUEST_TIMEOUT)
