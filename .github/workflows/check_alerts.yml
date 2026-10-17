@@ -22,7 +22,7 @@ jobs:
       - name: Run alert script
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} # <-- PASTIKAN BARIS INI BENAR
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
         run: python scripts/check_alerts_cron.py
