@@ -91,9 +91,9 @@ with st.sidebar:
     demo_mode = st.checkbox("Mode Demo", value=False)
 
 # 5. AMBIL DATA PASAR
+# 5. AMBIL DATA PASAR
 market_df = None
 data_source = "LIVE"
-error_message = None
 
 if demo_mode:
     market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
@@ -102,16 +102,14 @@ else:
     try:
         market_df = cached_market_data(currency, coin_count)
     except Exception as exc:
-        error_message = str(exc)
+        # JIKA API LIMIT, OTOMATIS PINDAH KE DATA DEMO AGAR APLIKASI TIDAK MATI
+        market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
+        data_source = "DEMO (Fallback)"
+        st.warning(f"⚠️ Batas API CoinGecko tercapai (429). Menampilkan data demo sementara.")
 
-if error_message:
-    st.error(error_message)
+if market_df is None or market_df.empty:
+    st.error("Gagal memuat data pasar sama sekali.")
     st.stop()
-
-market_df = market_df.copy()
-market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
-market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
-unit_label = f"Harga ({currency})"
 
 # ===========================================================================
 # MENU 1: RINGKASAN (PREMIUM OVERVIEW)
