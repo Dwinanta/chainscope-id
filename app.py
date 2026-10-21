@@ -123,7 +123,7 @@ if menu == "🏠 Ringkasan":
         st.markdown("<h1 style='margin-bottom:0;'>Market Overview</h1>", unsafe_allow_html=True)
         st.markdown(f"<p class='text-muted'>Data {data_source} • Top {len(market_df)} koin</p>", unsafe_allow_html=True)
     with col_search:
-        st.write("") # spacing
+        st.write("") 
         search_query = st.text_input("🔍 Cari koin...", placeholder="Bitcoin, ETH, dll", label_visibility="collapsed")
 
     # --- ROW 1: KARTU TOP 4 ---
@@ -135,7 +135,6 @@ if menu == "🏠 Ringkasan":
                 color = "#00E676" if row['price_change_percentage_24h'] >= 0 else "#FF5252"
                 icon = "▲" if row['price_change_percentage_24h'] >= 0 else "▼"
                 
-                # Header Card (Logo + Nama)
                 st.markdown(f"""
                 <div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>
                     <img src="{row['image']}" width="24" height="24" style="border-radius:50%;">
@@ -145,7 +144,6 @@ if menu == "🏠 Ringkasan":
                 <span style='color:{color}; font-size:0.9rem;'>{icon} {row['price_change_percentage_24h']:.2f}% (24h)</span>
                 """, unsafe_allow_html=True)
                 
-                                # Sparkline (Langsung ambil dari data market_df, tidak perlu request API baru)
                 sparkline_prices = row.get("sparkline_in_7d", {}).get("price", [])
                 if sparkline_prices:
                     fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
@@ -159,7 +157,6 @@ if menu == "🏠 Ringkasan":
     
     with col_chart:
         with st.container(border=True):
-            # Header Chart & Timeframe Selector
             c_t1, c_t2, c_t3 = st.columns([2, 2, 2])
             c_t1.markdown("#### Pergerakan Harga")
             chart_coin = c_t2.selectbox("Pilih Koin", market_df["label"].tolist(), label_visibility="collapsed")
@@ -172,77 +169,103 @@ if menu == "🏠 Ringkasan":
             
             try:
                 hist_df = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, days)
-                
                 fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#2962FF'])
                 fig_main.update_layout(
-                    margin=dict(l=0, r=0, t=10, b=0), height=350,
+                    margin=dict(l=0, r=0, t=10, b=0), height=320,
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                     xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96')
                 )
                 st.plotly_chart(fig_main, use_container_width=True)
-            except Exception as e:
-                st.warning("⚠️ Grafik sedang tidak dapat dimuat karena batas API CoinGecko. Silakan coba beberapa saat lagi atau gunakan Mode Demo.")
+            except Exception:
+                st.warning("⚠️ Grafik sedang tidak dapat dimuat (API Limit).")
 
     with col_movers:
         with st.container(border=True):
             st.markdown("#### 🚀 Top Gainers")
-            gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(5)
+            gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(4)
             for _, row in gainers.iterrows():
                 st.markdown(f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;'>
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
                     <div style='display:flex; gap:8px; align-items:center;'>
                         <img src="{row['image']}" width="20" height="20">
-                        <b>{row['symbol_upper']}</b>
+                        <div>
+                            <b>{row['symbol_upper']}</b><br>
+                            <span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span>
+                        </div>
                     </div>
-                    <span class='text-green'>+{row['price_change_percentage_24h']:.2f}%</span>
+                    <span class='text-green' style='font-weight:bold;'>+{row['price_change_percentage_24h']:.2f}%</span>
                 </div>
                 """, unsafe_allow_html=True)
             
-            st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:10px 0; border-color:#1E222D;'>", unsafe_allow_html=True)
             st.markdown("#### 🔻 Top Losers")
-            losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(5)
+            losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(4)
             for _, row in losers.iterrows():
                 st.markdown(f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;'>
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
                     <div style='display:flex; gap:8px; align-items:center;'>
                         <img src="{row['image']}" width="20" height="20">
-                        <b>{row['symbol_upper']}</b>
+                        <div>
+                            <b>{row['symbol_upper']}</b><br>
+                            <span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span>
+                        </div>
                     </div>
-                    <span class='text-red'>{row['price_change_percentage_24h']:.2f}%</span>
+                    <span class='text-red' style='font-weight:bold;'>{row['price_change_percentage_24h']:.2f}%</span>
                 </div>
                 """, unsafe_allow_html=True)
 
-    # --- ROW 3: TABEL DATA LENGKAP (DENGAN LOGO) ---
+    # --- ROW 3: TABEL DATA INTERAKTIF ---
     st.markdown("### Tabel Data Pasar")
+    st.caption("💡 Klik pada baris tabel untuk melihat detail pergerakan harga koin tersebut.")
+    
     filtered_df = search.filter_coins(market_df, search_query)
     table_source = filtered_df if not filtered_df.empty else market_df
     
-    # Buat DataFrame untuk tabel
+    # FORMAT ANGKA AGAR ADA KOMA (Menggunakan fungsi format string python)
     display_df = pd.DataFrame({
         "#": range(1, len(table_source) + 1),
-        "Logo": table_source["image"], # URL gambar
+        "Logo": table_source["image"],
         "Nama": table_source["name"],
         "Simbol": table_source["symbol_upper"],
-        "Harga": table_source["current_price"],
-        "24h (%)": table_source["price_change_percentage_24h"],
-        "Volume 24h": table_source["total_volume"],
-        "Kap. Pasar": table_source["market_cap"]
+        "Harga": table_source["current_price"].map(lambda v: formatting.format_money(v, currency)),
+        "24h (%)": table_source["price_change_percentage_24h"].map(lambda v: f"{v:.2f}%"),
+        "Volume 24h": table_source["total_volume"].map(lambda v: f"{v:,.0f}"),
+        "Kap. Pasar": table_source["market_cap"].map(lambda v: f"{v:,.0f}")
     })
 
-    # Tampilkan Tabel dengan Config
-    st.dataframe(
+    # Tabel Interaktif (on_select)
+    event = st.dataframe(
         display_df,
         use_container_width=True,
         hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
         column_config={
             "Logo": st.column_config.ImageColumn("", width="small"),
-            "Harga": st.column_config.NumberColumn(format=f"{currency} %,.2f"),
-            "24h (%)": st.column_config.NumberColumn(format="%.2f%%"),
-            "Volume 24h": st.column_config.NumberColumn(format="%,.0f"),
-            "Kap. Pasar": st.column_config.NumberColumn(format="%,.0f")
+            "Harga": st.column_config.TextColumn("Harga", width="medium"),
+            "Volume 24h": st.column_config.TextColumn("Volume 24h", width="medium"),
+            "Kap. Pasar": st.column_config.TextColumn("Kap. Pasar", width="medium"),
         }
     )
 
+    # JIKA USER KLIK BARIS TABEL, TAMPILKAN GRAFIK DI BAWAHNYA
+    if len(event.selection.rows) > 0:
+        selected_idx = event.selection.rows[0]
+        selected_coin_id = table_source.iloc[selected_idx]["id"]
+        selected_coin_name = table_source.iloc[selected_idx]["name"]
+        
+        st.markdown(f"### 📊 Detail Chart: {selected_coin_name}")
+        try:
+            detail_hist = demo.get_demo_price_history(table_source.iloc[selected_idx]["current_price"]) if demo_mode else cached_price_history(selected_coin_id, currency, 30)
+            fig_detail = px.line(detail_hist, x="waktu", y="price", color_discrete_sequence=['#00E676'])
+            fig_detail.update_layout(
+                margin=dict(l=0, r=0, t=10, b=0), height=300,
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96')
+            )
+            st.plotly_chart(fig_detail, use_container_width=True)
+        except Exception:
+            st.warning("Gagal memuat detail grafik (API limit).")
 # ===========================================================================
 # MENU 2: TRADING JOURNAL
 # ===========================================================================
