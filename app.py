@@ -18,6 +18,8 @@ st.set_page_config(page_title="ChainScope ID", page_icon="📈", layout="wide")
 ui.apply_premium_theme()
 
 # 2. CEK AUTENTIKASI
+auth.check_session() # <-- TAMBAHKAN BARIS INI UNTUK MEMBACA URL
+
 if "user" not in st.session_state or st.session_state.user is None:
     auth.show_auth_page()
     st.stop()

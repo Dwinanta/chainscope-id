@@ -8,9 +8,34 @@ def login_user(email, password):
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state.user = res.user
         st.session_state.session = res.session
+        
+        # SIMPAN TOKEN KE URL AGAR TIDAK HILANG SAAT REFRESH
+        st.query_params["access_token"] = res.session.access_token
+        st.query_params["refresh_token"] = res.session.refresh_token
         return True, "Login berhasil"
     except Exception as e:
         return False, str(e)
+
+def check_session():
+    """Cek apakah ada sesi login di memori atau di URL."""
+    # 1. Jika sudah ada di memori, lanjutkan
+    if "user" in st.session_state and st.session_state.user is not None:
+        return
+
+    # 2. Jika tidak ada di memori, coba ambil token dari URL
+    access_token = st.query_params.get("access_token")
+    refresh_token = st.query_params.get("refresh_token")
+
+    if access_token and refresh_token:
+        supabase = db.get_supabase()
+        try:
+            # Pulihkan sesi di Supabase client
+            session = supabase.auth.set_session(access_token, refresh_token)
+            st.session_state.user = session.user
+            st.session_state.session = session.session
+        except Exception:
+            # Jika token kadaluarsa atau error, bersihkan URL
+            st.query_params.clear()
 
 def register_user(email, password):
     supabase = db.get_supabase()
@@ -22,9 +47,14 @@ def register_user(email, password):
 
 def logout_user():
     supabase = db.get_supabase()
-    supabase.auth.sign_out()
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    # Bersihkan memori dan URL
     st.session_state.user = None
     st.session_state.session = None
+    st.query_params.clear()
     st.rerun()
 
 def show_auth_page():
