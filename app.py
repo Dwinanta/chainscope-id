@@ -1,5 +1,5 @@
 """
-ChainScope ID - Premium Trading Terminal v2.0
+ChainScope ID - Premium Trading Terminal (Full Features)
 """
 from datetime import datetime, timezone
 import pandas as pd
@@ -8,7 +8,10 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from chainscope import ui, api, auth, compare, config, converter, db, demo, formatting, indicators, portfolio, report, search, telegram, admin, journal_calc
+from chainscope import (
+    ui, api, auth, compare, config, converter, db, demo, formatting, 
+    indicators, journal_calc, portfolio, report, search, telegram, admin
+)
 
 # 1. KONFIGURASI HALAMAN & TEMA
 st.set_page_config(page_title="ChainScope ID", page_icon="📈", layout="wide")
@@ -50,14 +53,13 @@ def cached_usd_idr_rate() -> float:
 
 # 4. SIDEBAR 
 with st.sidebar:
-    # LOGO HEADER
     st.markdown("""
-        <div class="sidebar-logo">
-            <h2>⚡ ChainScope <span>ID</span></h2>
+        <div class="logo-container">
+            <div class="logo-icon">⚡</div>
+            <div class="logo-text">ChainScope <span>ID</span></div>
         </div>
     """, unsafe_allow_html=True)
     
-    # User Profile & Plan
     st.markdown(f"👤 **{user.email}**")
     end_date = user_profile.get("subscription_end")
     if end_date:
@@ -73,7 +75,6 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Navigasi
     menu_options = [
         "🏠 Ringkasan", "📒 Trading Journal", "🔔 Alerts", 
         "📉 Teknikal", "📈 Perbandingan", "💼 Portofolio", 
@@ -85,9 +86,8 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Settings Global
     currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
-    coin_count = st.selectbox("Tampilkan Koin:", options=config.COIN_COUNT_OPTIONS, index=0, help="Menampilkan Top-N koin dari CoinGecko")
+    coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
     demo_mode = st.checkbox("Mode Demo", value=False)
 
 # 5. AMBIL DATA PASAR
@@ -96,7 +96,7 @@ data_source = "LIVE"
 error_message = None
 
 if demo_mode:
-    market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency) # Demo dibatasi 50
+    market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
     data_source = "DEMO"
 else:
     try:
@@ -114,10 +114,9 @@ market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 unit_label = f"Harga ({currency})"
 
 # ===========================================================================
-# MENU 1: RINGKASAN (PADAT & LENGKAP)
+# MENU 1: RINGKASAN (PREMIUM OVERVIEW)
 # ===========================================================================
 if menu == "🏠 Ringkasan":
-    # Header
     col_title, col_search = st.columns([2, 1])
     with col_title:
         st.markdown("<h1 style='margin-bottom:0;'>Market Overview</h1>", unsafe_allow_html=True)
@@ -126,7 +125,6 @@ if menu == "🏠 Ringkasan":
         st.write("") 
         search_query = st.text_input("🔍 Cari koin...", placeholder="Bitcoin, ETH, dll", label_visibility="collapsed")
 
-    # --- ROW 1: KARTU TOP 4 ---
     top4_df = market_df.head(4)
     cols = st.columns(4)
     for col, (_, row) in zip(cols, top4_df.iterrows()):
@@ -134,7 +132,6 @@ if menu == "🏠 Ringkasan":
             with st.container(border=True):
                 color = "#00E676" if row['price_change_percentage_24h'] >= 0 else "#FF5252"
                 icon = "▲" if row['price_change_percentage_24h'] >= 0 else "▼"
-                
                 st.markdown(f"""
                 <div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>
                     <img src="{row['image']}" width="24" height="24" style="border-radius:50%;">
@@ -152,76 +149,39 @@ if menu == "🏠 Ringkasan":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- ROW 2: GRAFIK BESAR & GAINERS/LOSERS ---
     col_chart, col_movers = st.columns([2.5, 1])
-    
     with col_chart:
         with st.container(border=True):
             c_t1, c_t2, c_t3 = st.columns([2, 2, 2])
             c_t1.markdown("#### Pergerakan Harga")
             chart_coin = c_t2.selectbox("Pilih Koin", market_df["label"].tolist(), label_visibility="collapsed")
             timeframe = c_t3.selectbox("Timeframe", ["1D", "7D", "1M", "1Y"], index=1, label_visibility="collapsed")
-            
             days_map = {"1D": 1, "7D": 7, "1M": 30, "1Y": 365}
-            days = days_map[timeframe]
-            
             cid = dict(zip(market_df["label"], market_df["id"]))[chart_coin]
-            
             try:
-                hist_df = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, days)
+                hist_df = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, days_map[timeframe])
                 fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#2962FF'])
-                fig_main.update_layout(
-                    margin=dict(l=0, r=0, t=10, b=0), height=320,
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96')
-                )
+                fig_main.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=320, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96'))
                 st.plotly_chart(fig_main, use_container_width=True)
-            except Exception:
-                st.warning("⚠️ Grafik sedang tidak dapat dimuat (API Limit).")
+            except Exception: st.warning("⚠️ Grafik API Limit.")
 
     with col_movers:
         with st.container(border=True):
             st.markdown("#### 🚀 Top Gainers")
             gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(4)
             for _, row in gainers.iterrows():
-                st.markdown(f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
-                    <div style='display:flex; gap:8px; align-items:center;'>
-                        <img src="{row['image']}" width="20" height="20">
-                        <div>
-                            <b>{row['symbol_upper']}</b><br>
-                            <span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span>
-                        </div>
-                    </div>
-                    <span class='text-green' style='font-weight:bold;'>+{row['price_change_percentage_24h']:.2f}%</span>
-                </div>
-                """, unsafe_allow_html=True)
-            
+                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'><div style='display:flex; gap:8px; align-items:center;'><img src='{row['image']}' width='20' height='20'><div><b>{row['symbol_upper']}</b><br><span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span></div></div><span class='text-green' style='font-weight:bold;'>+{row['price_change_percentage_24h']:.2f}%</span></div>", unsafe_allow_html=True)
             st.markdown("<hr style='margin:10px 0; border-color:#1E222D;'>", unsafe_allow_html=True)
             st.markdown("#### 🔻 Top Losers")
             losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(4)
             for _, row in losers.iterrows():
-                st.markdown(f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
-                    <div style='display:flex; gap:8px; align-items:center;'>
-                        <img src="{row['image']}" width="20" height="20">
-                        <div>
-                            <b>{row['symbol_upper']}</b><br>
-                            <span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span>
-                        </div>
-                    </div>
-                    <span class='text-red' style='font-weight:bold;'>{row['price_change_percentage_24h']:.2f}%</span>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'><div style='display:flex; gap:8px; align-items:center;'><img src='{row['image']}' width='20' height='20'><div><b>{row['symbol_upper']}</b><br><span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span></div></div><span class='text-red' style='font-weight:bold;'>{row['price_change_percentage_24h']:.2f}%</span></div>", unsafe_allow_html=True)
 
-    # --- ROW 3: TABEL DATA INTERAKTIF ---
     st.markdown("### Tabel Data Pasar")
     st.caption("💡 Klik pada baris tabel untuk melihat detail pergerakan harga koin tersebut.")
-    
     filtered_df = search.filter_coins(market_df, search_query)
     table_source = filtered_df if not filtered_df.empty else market_df
     
-    # FORMAT ANGKA AGAR ADA KOMA (Menggunakan fungsi format string python)
     display_df = pd.DataFrame({
         "#": range(1, len(table_source) + 1),
         "Logo": table_source["image"],
@@ -233,45 +193,28 @@ if menu == "🏠 Ringkasan":
         "Kap. Pasar": table_source["market_cap"].map(lambda v: f"{v:,.0f}")
     })
 
-    # Tabel Interaktif (on_select)
     event = st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        column_config={
-            "Logo": st.column_config.ImageColumn("", width="small"),
-            "Harga": st.column_config.TextColumn("Harga", width="medium"),
-            "Volume 24h": st.column_config.TextColumn("Volume 24h", width="medium"),
-            "Kap. Pasar": st.column_config.TextColumn("Kap. Pasar", width="medium"),
-        }
+        display_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row",
+        column_config={"Logo": st.column_config.ImageColumn("", width="small"), "Harga": st.column_config.TextColumn("Harga"), "Volume 24h": st.column_config.TextColumn("Volume 24h"), "Kap. Pasar": st.column_config.TextColumn("Kap. Pasar")}
     )
 
-    # JIKA USER KLIK BARIS TABEL, TAMPILKAN GRAFIK DI BAWAHNYA
     if len(event.selection.rows) > 0:
         selected_idx = event.selection.rows[0]
         selected_coin_id = table_source.iloc[selected_idx]["id"]
         selected_coin_name = table_source.iloc[selected_idx]["name"]
-        
         st.markdown(f"### 📊 Detail Chart: {selected_coin_name}")
         try:
             detail_hist = demo.get_demo_price_history(table_source.iloc[selected_idx]["current_price"]) if demo_mode else cached_price_history(selected_coin_id, currency, 30)
             fig_detail = px.line(detail_hist, x="waktu", y="price", color_discrete_sequence=['#00E676'])
-            fig_detail.update_layout(
-                margin=dict(l=0, r=0, t=10, b=0), height=300,
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96')
-            )
+            fig_detail.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96'))
             st.plotly_chart(fig_detail, use_container_width=True)
-        except Exception:
-            st.warning("Gagal memuat detail grafik (API limit).")
+        except Exception: st.warning("Gagal memuat detail grafik (API limit).")
+
 # ===========================================================================
 # MENU 2: TRADING JOURNAL
 # ===========================================================================
 elif menu == "📒 Trading Journal":
     st.subheader("📒 Trading Journal")
-    
     col_manual, col_csv = st.columns(2)
     with col_manual:
         st.markdown("**Input Manual**")
@@ -281,7 +224,6 @@ elif menu == "📒 Trading Journal":
             t_date = st.date_input("Tanggal", datetime.now())
             t_amount = st.number_input("Jumlah Koin", min_value=0.00000001, format="%.8f")
             t_price = st.number_input("Harga (USD)", min_value=0.01)
-            
             if st.form_submit_button("Simpan Transaksi"):
                 sym = market_df[market_df["id"]==t_coin]["symbol_upper"].values[0]
                 db.add_trade(user.id, t_coin, sym, t_side, t_amount, t_price, str(t_date))
@@ -294,13 +236,11 @@ elif menu == "📒 Trading Journal":
         if uploaded_file:
             try:
                 df_csv = pd.read_csv(uploaded_file)
-                col_options = df_csv.columns.tolist()
-                map_coin = st.selectbox("Kolom Koin", col_options)
-                map_side = st.selectbox("Kolom Aksi", col_options)
-                map_amount = st.selectbox("Kolom Jumlah", col_options)
-                map_price = st.selectbox("Kolom Harga", col_options)
-                map_date = st.selectbox("Kolom Tanggal", col_options)
-                
+                map_coin = st.selectbox("Kolom Koin", df_csv.columns)
+                map_side = st.selectbox("Kolom Aksi", df_csv.columns)
+                map_amount = st.selectbox("Kolom Jumlah", df_csv.columns)
+                map_price = st.selectbox("Kolom Harga", df_csv.columns)
+                map_date = st.selectbox("Kolom Tanggal", df_csv.columns)
                 if st.button("Proses CSV", use_container_width=True):
                     success_count = 0
                     for _, row in df_csv.iterrows():
@@ -311,8 +251,7 @@ elif menu == "📒 Trading Journal":
                             success_count += 1
                     st.success(f"Import {success_count} transaksi!")
                     st.rerun()
-            except Exception as e:
-                st.error(f"Error CSV: {e}")
+            except Exception as e: st.error(f"Error CSV: {e}")
 
     st.markdown("---")
     trades = db.get_user_trades(user.id)
@@ -325,10 +264,22 @@ elif menu == "📒 Trading Journal":
             st.rerun()
 
 # ===========================================================================
-# MENU 3: ALERTS (Singkat)
+# MENU 3: ALERTS
 # ===========================================================================
 elif menu == "🔔 Alerts":
     st.subheader("🔔 Price Alerts")
+    with st.expander("⚙️ Hubungkan ke Telegram"):
+        tg_chat = st.text_input("Chat ID Telegram Kamu:", value=user_profile.get("telegram_chat_id", ""))
+        if st.button("💾 Simpan Chat ID"):
+            db.update_telegram_chat_id(user.id, tg_chat)
+            st.success("Chat ID tersimpan!")
+            st.rerun()
+        if st.button("📨 Test Kirim Pesan"):
+            global_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+            if telegram.send_message(global_token, tg_chat, "✅ ChainScope ID Berhasil Terhubung!"):
+                st.success("Terkirim!")
+            else: st.error("Gagal kirim.")
+    
     with st.form("alert_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         a_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
@@ -345,39 +296,163 @@ elif menu == "🔔 Alerts":
             st.markdown(f"**{a['symbol']}** {a['condition']} {a['target_price']} {a['currency']} — {'Triggered' if not a['is_active'] else 'Waiting'}")
 
 # ===========================================================================
-# MENU 4: TEKNIKAL (Singkat)
+# MENU 4: TEKNIKAL
 # ===========================================================================
 elif menu == "📉 Teknikal":
     st.subheader("📉 Analisis Teknikal")
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns([2, 1, 1])
     tech_label = c1.selectbox("Koin:", market_df["label"].tolist())
+    chart_mode = c2.radio("Mode:", ["Line", "Candlestick"], horizontal=True)
+    tf = c3.selectbox("Timeframe", ["1D", "7D", "1M", "1Y"], index=1)
+    
+    days_map = {"1D": 1, "7D": 7, "1M": 30, "1Y": 365}
     tech_id = dict(zip(market_df["label"], market_df["id"]))[tech_label]
     
-    hist = cached_price_history(tech_id, currency, 7)
-    hist["ma20"] = indicators.sma(hist["price"], 20)
-    hist["rsi"] = indicators.rsi(hist["price"], 14)
-    
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
-    fig.add_trace(go.Scatter(x=hist["waktu"], y=hist["price"], name="Price", line=dict(color="#2962FF")), row=1, col=1)
-    fig.add_trace(go.Scatter(x=hist["waktu"], y=hist["ma20"], name="MA20", line=dict(color="#FFB300")), row=1, col=1)
-    fig.add_trace(go.Scatter(x=hist["waktu"], y=hist["rsi"], name="RSI", line=dict(color="#00E676")), row=2, col=1)
-    fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=600)
-    st.plotly_chart(fig, use_container_width=True)
+    try:
+        hist = demo.get_demo_price_history(market_df[market_df["id"]==tech_id].iloc[0]["current_price"]) if demo_mode else cached_price_history(tech_id, currency, days_map[tf])
+        ohlc = None
+        if chart_mode == "Candlestick" and not demo_mode:
+            ohlc = cached_ohlc(tech_id, currency, days_map[tf])
+            
+        hist["ma20"] = indicators.sma(hist["price"], 20)
+        hist["rsi"] = indicators.rsi(hist["price"], 14)
+        
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
+        if ohlc is not None and not ohlc.empty:
+            fig.add_trace(go.Candlestick(x=ohlc["waktu"], open=ohlc["open"], high=ohlc["high"], low=ohlc["low"], close=ohlc["close"], name="OHLC"), row=1, col=1)
+        else:
+            fig.add_trace(go.Scatter(x=hist["waktu"], y=hist["price"], name="Price", line=dict(color="#2962FF")), row=1, col=1)
+            
+        fig.add_trace(go.Scatter(x=hist["waktu"], y=hist["ma20"], name="MA20", line=dict(color="#FFB300")), row=1, col=1)
+        fig.add_trace(go.Scatter(x=hist["waktu"], y=hist["rsi"], name="RSI", line=dict(color="#00E676")), row=2, col=1)
+        fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=600, margin=dict(l=0,r=0,t=20,b=0))
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception: st.warning("Gagal memuat data teknikal (API Limit).")
 
 # ===========================================================================
-# MENU 5-11 (Placeholder Rapi)
+# MENU 5: PERBANDINGAN
 # ===========================================================================
 elif menu == "📈 Perbandingan":
-    st.info("Fitur Perbandingan siap.")
+    st.subheader("📈 Perbandingan Multi-Koin")
+    selected_labels = st.multiselect("Pilih 2–5 koin:", options=market_df["label"].tolist(), default=market_df["label"].head(3).tolist(), max_selections=5)
+    normalize = st.toggle("Normalisasi ke 100", value=True)
+    
+    if len(selected_labels) >= 2:
+        try:
+            history_by_coin = {}
+            for lbl in selected_labels:
+                cid = dict(zip(market_df["label"], market_df["id"]))[lbl]
+                history_by_coin[cid] = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, 7)
+                
+            comp_df = compare.build_comparison_df(history_by_coin)
+            if normalize: comp_df = compare.normalize_to_100(comp_df)
+            fig = px.line(comp_df, x="waktu", y=[c for c in comp_df.columns if c != "waktu"])
+            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception: st.warning("Gagal memuat perbandingan (API Limit).")
+
+# ===========================================================================
+# MENU 6: PORTOFOLIO
+# ===========================================================================
 elif menu == "💼 Portofolio":
-    st.info("Fitur Portofolio siap.")
+    st.subheader("💼 Portofolio Otomatis")
+    trades = db.get_user_trades(user.id)
+    if not trades:
+        st.info("Belum ada transaksi di Trading Journal.")
+    else:
+        pf_df = journal_calc.calculate_portfolio_from_trades(trades)
+        if pf_df.empty:
+            st.warning("Semua aset sudah terjual.")
+        else:
+            pf_df = pf_df.merge(market_df[["id", "current_price"]], left_on="coin_id", right_on="id", how="left")
+            rate = cached_usd_idr_rate() if currency == "IDR" else 1.0
+            if demo_mode: rate = config.DEMO_USD_TO_IDR if currency == "IDR" else 1.0
+            
+            pf_df["current_price"] = pf_df["current_price"].fillna(0)
+            pf_df["avg_buy_price"] = pf_df["avg_buy_price_usd"] * rate
+            pf_df["invested"] = pf_df["total_invested_usd"] * rate
+            pf_df["current_value"] = pf_df["amount"] * pf_df["current_price"]
+            pf_df["pnl"] = pf_df["current_value"] - pf_df["invested"]
+            pf_df["pnl_pct"] = (pf_df["pnl"] / pf_df["invested"] * 100).fillna(0)
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Nilai Aset", formatting.format_money(pf_df["current_value"].sum(), currency))
+            c2.metric("Total Modal", formatting.format_money(pf_df["invested"].sum(), currency))
+            c3.metric("P&L", formatting.format_money(pf_df["pnl"].sum(), currency), delta=f"{pf_df['pnl_pct'].mean():.2f}%")
+            
+            display_df = pd.DataFrame({
+                "Koin": pf_df["symbol"],
+                "Jumlah": pf_df["amount"].map(lambda x: f"{x:.4f}"),
+                "Harga Rata2": pf_df["avg_buy_price"].map(lambda v: formatting.format_money(v, currency)),
+                "Nilai Kini": pf_df["current_value"].map(lambda v: formatting.format_money(v, currency)),
+                "P&L": pf_df["pnl"].map(lambda v: formatting.format_money(v, currency)),
+            })
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+# ===========================================================================
+# MENU 7: KONVERTER
+# ===========================================================================
 elif menu == "💱 Konverter":
-    st.info("Fitur Konverter siap.")
+    st.subheader("💱 Konverter Koin")
+    rate = cached_usd_idr_rate() if currency == "IDR" else 1.0
+    price_map = converter.build_price_map(market_df, currency, rate)
+    
+    col1, col2 = st.columns(2)
+    from_asset = col1.selectbox("Dari:", ["USD", "IDR"] + market_df["id"].tolist())
+    to_asset = col2.selectbox("Ke:", ["USD", "IDR"] + market_df["id"].tolist(), index=1)
+    amount = st.number_input("Jumlah:", min_value=0.0, value=1.0)
+    
+    res = converter.convert(amount, from_asset, to_asset, price_map)
+    if res: st.metric("Hasil", formatting.format_money(res, currency))
+
+# ===========================================================================
+# MENU 8: WATCHLIST
+# ===========================================================================
 elif menu == "⭐ Watchlist":
-    st.info("Fitur Watchlist siap.")
+    st.subheader("⭐ Watchlist Saya")
+    available_ids = market_df["id"].tolist()
+    current_watchlist = db.get_user_watchlist(user.id)
+    valid_default = [cid for cid in current_watchlist if cid in available_ids]
+    
+    selected_ids = st.multiselect("Pilih koin:", options=available_ids, default=valid_default, format_func=lambda cid: dict(zip(market_df["id"], market_df["label"])).get(cid, cid))
+    
+    if set(selected_ids) != set(current_watchlist):
+        db.clear_user_watchlist(user.id)
+        for cid in selected_ids: db.add_to_watchlist(user.id, cid)
+        st.rerun()
+        
+    if current_watchlist:
+        wl_df = market_df[market_df["id"].isin(current_watchlist)].copy()
+        st.dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), use_container_width=True, hide_index=True)
+
+# ===========================================================================
+# MENU 9: GAINERS & LOSERS
+# ===========================================================================
 elif menu == "🚀 Gainers & Losers":
-    st.info("Fitur Movers siap.")
+    st.subheader("Pergerakan 24 Jam")
+    movers_df = market_df.dropna(subset=["price_change_percentage_24h"]).sort_values("price_change_percentage_24h", ascending=False)
+    cg, cl = st.columns(2)
+    cg.markdown("#### 🟢 Top Gainers")
+    cg.dataframe(movers_df.head(5)[["symbol_upper", "price_change_percentage_24h"]], use_container_width=True, hide_index=True)
+    cl.markdown("#### 🔴 Top Losers")
+    cl.dataframe(movers_df.tail(5)[["symbol_upper", "price_change_percentage_24h"]], use_container_width=True, hide_index=True)
+
+# ===========================================================================
+# MENU 10: LAPORAN PDF
+# ===========================================================================
 elif menu == "📄 Laporan PDF":
-    st.info("Fitur PDF siap.")
+    st.subheader("📄 Laporan PDF")
+    if st.button("Buat Laporan"):
+        try:
+            pdf_bytes = report.build_weekly_report(market_df, currency, data_source)
+            st.download_button("⬇️ Unduh PDF", data=pdf_bytes, file_name="report.pdf", mime="application/pdf")
+        except Exception as e: st.error(f"Gagal membuat PDF: {e}")
+
+# ===========================================================================
+# MENU 11: ADMIN PANEL
+# ===========================================================================
 elif menu == "👑 Admin Panel" and is_dev:
-    st.info("Admin Panel siap.")
+    st.subheader("👑 Admin Panel")
+    all_users = admin.get_all_users()
+    df_users = pd.DataFrame(all_users)
+    st.dataframe(df_users[["email", "role", "subscription_tier", "subscription_end"]], use_container_width=True, hide_index=True)
