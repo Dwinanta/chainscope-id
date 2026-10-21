@@ -21,7 +21,6 @@ _DEMO_BASE = [
 
 
 def get_demo_market_data(limit: int, currency: str) -> pd.DataFrame:
-    """Data demo dalam mata uang terpilih (USD dasar * kurs)."""
     rate = config.DEMO_USD_TO_IDR if currency.upper() == "IDR" else 1.0
     rows = []
     for i in range(limit):
@@ -35,16 +34,23 @@ def get_demo_market_data(limit: int, currency: str) -> pd.DataFrame:
             mcap = max(1_000_000, 1_000_000_000 // (i + 1))
             vol = max(100_000, 100_000_000 // (i + 1))
             chg = ((i % 7) - 3) * 0.5
+            
         rows.append({
             "id": cid,
             "symbol": sym,
             "name": name,
+            "image": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png", # URL Logo default
             "current_price": price * rate,
             "market_cap": mcap * rate,
             "total_volume": vol * rate,
             "price_change_percentage_24h": chg,
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    
+    # Tambahkan sparkline dummy agar tidak error
+    df["sparkline_in_7d"] = [{"price": [p * 0.99, p, p * 0.98, p * 1.01]} for p in df["current_price"]]
+    
+    return df
 
 
 def get_demo_price_history(current_price: float) -> pd.DataFrame:

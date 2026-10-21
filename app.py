@@ -93,7 +93,6 @@ with st.sidebar:
     demo_mode = st.checkbox("Mode Demo", value=False)
 
 # 5. AMBIL DATA PASAR
-# 5. AMBIL DATA PASAR
 market_df = None
 data_source = "LIVE"
 
@@ -113,6 +112,11 @@ if market_df is None or market_df.empty:
     st.error("Gagal memuat data pasar sama sekali.")
     st.stop()
 
+# PASTIKAN 4 BARIS INI ADA
+market_df = market_df.copy()
+market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
+market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
+unit_label = f"Harga ({currency})"
 # ===========================================================================
 # MENU 1: RINGKASAN (PREMIUM OVERVIEW)
 # ===========================================================================
