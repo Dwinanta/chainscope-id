@@ -1,116 +1,54 @@
-"""Modul untuk kustomisasi UI/UX Premium (Light Mode)."""
+"""Modul UI Premium (Light Mode - Pixel Perfect)."""
 import streamlit as st
 
 def apply_premium_theme():
     st.markdown("""
     <style>
-    /* 1. Font & Background Utama */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    /* 1. Font & Background */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    .stApp { background-color: #F8F7FC; font-family: 'Inter', sans-serif; }
     
-    .stApp {
-        background-color: #F8F7FC;
-        font-family: 'Inter', sans-serif;
-        color: #171827;
+    /* Sembunyikan Header Streamlit */
+    header[data-testid="stHeader"] { display: none !important; }
+    .block-container { padding-top: 2rem !important; max-width: 95% !important; }
+
+    /* 2. Sidebar & Menu */
+    [data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #E9E6F0; }
+    
+    /* HAPUS BULATAN RADIO BUTTON */
+    [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child { display: none !important; }
+    
+    /* Style Menu Sidebar */
+    [data-testid="stSidebar"] div[role="radiogroup"] > label {
+        padding: 12px 16px; border-radius: 8px; margin-bottom: 4px;
+        cursor: pointer; transition: all 0.2s; color: #77788A; font-weight: 500;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background-color: #F8F7FC; }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) {
+        background-color: #F0E9FF; color: #6C35D9;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) p {
+        font-weight: 700; color: #6C35D9;
     }
 
-    /* 2. Sidebar Styling (Putih & Ungu) */
-    [data-testid="stSidebar"] {
-        background-color: #FFFFFF;
-        border-right: 1px solid #E9E6F0;
-    }
-    
-    /* Logo Container */
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 20px 10px;
-        margin-bottom: 10px;
-    }
-    .logo-icon {
-        background: #6C35D9;
-        color: white;
-        padding: 6px 10px;
-        border-radius: 8px;
-        font-weight: 800;
-        font-size: 1.2rem;
-    }
-    .logo-text {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: #171827;
-    }
-    .logo-text span {
-        color: #6C35D9;
-    }
-
-    /* Sembunyikan Radio Button Bawaan */
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label > div:first-child {
-        display: none !important;
-    }
-    
-    /* Menu Navigasi (Menggunakan Radio) */
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-        padding: 12px 16px;
-        background-color: transparent;
-        border-radius: 8px;
-        margin-bottom: 4px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        color: #77788A;
-        font-weight: 500;
-    }
-    
-    /* Hover Effect */
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-        background-color: #F0E9FF;
-        color: #6C35D9;
-    }
-    
-    /* Menu Aktif */
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] {
-        background-color: #F0E9FF;
-        color: #6C35D9;
-    }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] p {
-        font-weight: 600;
-    }
-
-    /* 3. Container & Kartu */
-    .block-container { 
-        padding-top: 2rem !important; 
-        max-width: 95% !important; 
-    }
-    
-    /* Kartu Putih Bersih */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #FFFFFF !important;
-        border-radius: 16px !important;
-        border: 1px solid #E9E6F0 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
-    }
-
-    /* Table Styling */
-    div[data-testid="stDataFrame"] { 
-        background-color: #FFFFFF; 
-        border-radius: 16px; 
-        border: 1px solid #E9E6F0;
-        padding: 10px;
-    }
-    
-    h1, h2, h3, h4 { color: #171827 !important; font-weight: 700 !important; }
+    /* 3. Typography & Colors */
+    h1 { color: #171827 !important; font-weight: 800 !important; font-size: 2rem !important; }
+    h2 { color: #171827 !important; font-weight: 700 !important; font-size: 1.6rem !important; }
     p, span, div { color: #77788A; }
     .text-green { color: #16834A !important; font-weight: 600; }
     .text-red { color: #D83D50 !important; font-weight: 600; }
-    
-    .stButton > button {
-        background-color: #6C35D9; 
-        color: white; 
-        border-radius: 8px; 
-        border: none; 
-        font-weight: 600; 
-        width: 100%;
+
+    /* 4. Clean Cards */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #FFFFFF !important; border-radius: 16px !important;
+        border: 1px solid #E9E6F0 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.02) !important;
+        padding: 5px !important;
     }
-    .stButton > button:hover { background-color: #5424B8; color: white; }
+
+    /* 5. Segmented Control (1D 7D 1M 1Y) */
+    div[data-testid="stSegmentedControl"] button { background-color: transparent !important; color: #77788A !important; border: none !important; }
+    div[data-testid="stSegmentedControl"] button[aria-checked="true"] {
+        background-color: #F0E9FF !important; color: #6C35D9 !important; border-radius: 8px !important; font-weight: 700 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
