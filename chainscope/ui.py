@@ -1,4 +1,4 @@
-"""Modul untuk kustomisasi UI/UX Premium (Dark Terminal Style)."""
+"""Modul untuk kustomisasi UI/UX Premium (Light Mode)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -8,14 +8,15 @@ def apply_premium_theme():
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     .stApp {
-        background-color: #0B0E14;
+        background-color: #F8F7FC;
         font-family: 'Inter', sans-serif;
+        color: #171827;
     }
 
-    /* 2. Sidebar Styling */
+    /* 2. Sidebar Styling (Putih & Ungu) */
     [data-testid="stSidebar"] {
-        background-color: #131722;
-        border-right: 1px solid #1E222D;
+        background-color: #FFFFFF;
+        border-right: 1px solid #E9E6F0;
     }
     
     /* Logo Container */
@@ -25,23 +26,22 @@ def apply_premium_theme():
         gap: 12px;
         padding: 20px 10px;
         margin-bottom: 10px;
-        border-bottom: 1px solid #1E222D;
     }
     .logo-icon {
-        background: linear-gradient(135deg, #2962FF, #00E676);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2rem;
-        font-weight: 900;
+        background: #6C35D9;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-weight: 800;
+        font-size: 1.2rem;
     }
     .logo-text {
-        font-size: 1.4rem;
-        font-weight: 800;
-        letter-spacing: 1px;
-        color: white;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #171827;
     }
     .logo-text span {
-        color: #2962FF;
+        color: #6C35D9;
     }
 
     /* Sembunyikan Radio Button Bawaan */
@@ -49,49 +49,68 @@ def apply_premium_theme():
         display: none !important;
     }
     
-    /* Ubah Menu Radio menjadi Kotak Elegan */
+    /* Menu Navigasi (Menggunakan Radio) */
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
         padding: 12px 16px;
-        background-color: #0B0E14;
-        border: 1px solid #1E222D;
+        background-color: transparent;
         border-radius: 8px;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
         cursor: pointer;
         transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
+        color: #77788A;
+        font-weight: 500;
     }
     
     /* Hover Effect */
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label:hover {
-        background-color: #1E222D;
-        border-color: #2962FF;
-        transform: translateX(4px);
+        background-color: #F0E9FF;
+        color: #6C35D9;
     }
     
     /* Menu Aktif */
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] {
-        background-color: #1E3A8A;
-        border-color: #2962FF;
+        background-color: #F0E9FF;
+        color: #6C35D9;
     }
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label[data-checked="true"] p {
-        font-weight: 700;
-        color: #FFFFFF;
+        font-weight: 600;
     }
 
-    /* 3. Container & Tabel */
-    .block-container { padding-top: 1.5rem !important; max-width: 95% !important; }
-    div[data-testid="stDataFrame"] { background-color: #131722; border-radius: 12px; border: 1px solid #1E222D; }
+    /* 3. Container & Kartu */
+    .block-container { 
+        padding-top: 2rem !important; 
+        max-width: 95% !important; 
+    }
     
-    h1, h2, h3, h4 { color: #FFFFFF !important; font-weight: 600 !important; }
-    p, span, div { color: #D1D4DC; }
-    .text-green { color: #00E676 !important; }
-    .text-red { color: #FF5252 !important; }
-    .text-muted { color: #868B96 !important; font-size: 0.85rem; }
+    /* Kartu Putih Bersih */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #FFFFFF !important;
+        border-radius: 16px !important;
+        border: 1px solid #E9E6F0 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+    }
+
+    /* Table Styling */
+    div[data-testid="stDataFrame"] { 
+        background-color: #FFFFFF; 
+        border-radius: 16px; 
+        border: 1px solid #E9E6F0;
+        padding: 10px;
+    }
+    
+    h1, h2, h3, h4 { color: #171827 !important; font-weight: 700 !important; }
+    p, span, div { color: #77788A; }
+    .text-green { color: #16834A !important; font-weight: 600; }
+    .text-red { color: #D83D50 !important; font-weight: 600; }
     
     .stButton > button {
-        background-color: #2962FF; color: white; border-radius: 6px; border: none; font-weight: 500; width: 100%;
+        background-color: #6C35D9; 
+        color: white; 
+        border-radius: 8px; 
+        border: none; 
+        font-weight: 600; 
+        width: 100%;
     }
-    .stButton > button:hover { background-color: #1E4BD8; color: white; }
+    .stButton > button:hover { background-color: #5424B8; color: white; }
     </style>
     """, unsafe_allow_html=True)

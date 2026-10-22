@@ -78,12 +78,14 @@ with st.sidebar:
     st.markdown("---")
     
     menu_options = [
-        "🏠 Ringkasan", "📒 Trading Journal", "🔔 Alerts", 
-        "📉 Teknikal", "📈 Perbandingan", "💼 Portofolio", 
-        "💱 Konverter", "⭐ Watchlist", "🚀 Gainers & Losers", 
+        "🏠 Market Overview", "📒 Trading Journal", "🔔 Price Alerts", 
+        "📉 Technical Analysis", "📈 Compare", "💼 Portfolio", 
+        "💱 Converter", "⭐ Watchlist", "🚀 Gainers & Losers", 
         "📄 Laporan PDF"
     ]
     if is_dev: menu_options.append("👑 Admin Panel")
+    
+    # Menggunakan ikon SVG inline untuk tampilan menu
     menu = st.radio("Navigasi", menu_options, label_visibility="collapsed")
 
     st.markdown("---")
@@ -120,99 +122,147 @@ unit_label = f"Harga ({currency})"
 # ===========================================================================
 # MENU 1: RINGKASAN (PREMIUM OVERVIEW)
 # ===========================================================================
-if menu == "🏠 Ringkasan":
-    col_title, col_search = st.columns([2, 1])
+if menu == "🏠 Market Overview":
+    # --- HEADER BAR ---
+    col_title, col_search = st.columns([3, 1])
     with col_title:
         st.markdown("<h1 style='margin-bottom:0;'>Market Overview</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p class='text-muted'>Data {data_source} • Top {len(market_df)} koin</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#77788A; font-size:0.95rem;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
     with col_search:
-        st.write("") 
-        search_query = st.text_input("🔍 Cari koin...", placeholder="Bitcoin, ETH, dll", label_visibility="collapsed")
+        search_query = st.text_input("🔍 Search coins...", placeholder="Search coins, pairs, or categories...", label_visibility="collapsed")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- ROW 1: KARTU TOP 4 ---
     top4_df = market_df.head(4)
     cols = st.columns(4)
     for col, (_, row) in zip(cols, top4_df.iterrows()):
         with col:
             with st.container(border=True):
-                color = "#00E676" if row['price_change_percentage_24h'] >= 0 else "#FF5252"
+                color = "#16834A" if row['price_change_percentage_24h'] >= 0 else "#D83D50"
                 icon = "▲" if row['price_change_percentage_24h'] >= 0 else "▼"
+                
                 st.markdown(f"""
-                <div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>
-                    <img src="{row['image']}" width="24" height="24" style="border-radius:50%;">
-                    <b>{row['name']}</b>
+                <div style='display:flex; justify-content:space-between; align-items:center;'>
+                    <div style='display:flex; gap:10px; align-items:center;'>
+                        <img src="{row['image']}" width="32" height="32" style="border-radius:50%;">
+                        <div>
+                            <div style='font-weight:600; font-size:1rem; color:#171827;'>{row['name']}</div>
+                            <div style='font-size:0.75rem; color:#77788A;'>{row['symbol_upper']}</div>
+                        </div>
+                    </div>
                 </div>
-                <h2 style='margin:0;'>{formatting.format_money(row['current_price'], currency)}</h2>
-                <span style='color:{color}; font-size:0.9rem;'>{icon} {row['price_change_percentage_24h']:.2f}% (24h)</span>
+                <h2 style='margin-top:15px; margin-bottom:5px;'>{formatting.format_money(row['current_price'], currency)}</h2>
+                <span style='color:{color}; font-size:0.85rem; font-weight:600;'>{icon} {row['price_change_percentage_24h']:.2f}%</span>
                 """, unsafe_allow_html=True)
                 
                 sparkline_prices = row.get("sparkline_in_7d", {}).get("price", [])
                 if sparkline_prices:
-                    fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
-                    fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=50, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
+                    fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=2)))
+                    fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=60, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    col_chart, col_movers = st.columns([2.5, 1])
+    # --- ROW 2: GRAFIK BESAR & GAINERS/LOSERS ---
+    col_chart, col_movers = st.columns([2.2, 1])
+    
     with col_chart:
         with st.container(border=True):
-            c_t1, c_t2, c_t3 = st.columns([2, 2, 2])
-            c_t1.markdown("#### Pergerakan Harga")
-            chart_coin = c_t2.selectbox("Pilih Koin", market_df["label"].tolist(), label_visibility="collapsed")
-            timeframe = c_t3.selectbox("Timeframe", ["1D", "7D", "1M", "1Y"], index=1, label_visibility="collapsed")
+            c_t1, c_t2 = st.columns([3, 2])
+            c_t1.markdown("#### Market Overview")
+            
+            # Menggunakan Market Cap Total sebagai pengganti (karena data global tidak selalu tersedia di API gratis)
+            # Kita ambil BTC chart sebagai proxy pergerakan market
+            btc_row = market_df[market_df["id"] == "bitcoin"].iloc[0]
+            total_mcap = market_df["market_cap"].sum()
+            
+            c_t1.markdown(f"<h2 style='margin:0;'>{formatting.format_money(total_mcap, currency)}</h2>", unsafe_allow_html=True)
+            c_t1.markdown(f"<span class='text-green'>▲ {btc_row['price_change_percentage_24h']:.2f}% (24h)</span>", unsafe_allow_html=True)
+            
+            timeframe = c_t2.radio("Timeframe", ["1D", "7D", "1M", "1Y"], horizontal=True, label_visibility="collapsed")
             days_map = {"1D": 1, "7D": 7, "1M": 30, "1Y": 365}
-            cid = dict(zip(market_df["label"], market_df["id"]))[chart_coin]
+            
             try:
-                hist_df = demo.get_demo_price_history(market_df[market_df["id"]==cid].iloc[0]["current_price"]) if demo_mode else cached_price_history(cid, currency, days_map[timeframe])
-                fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#2962FF'])
-                fig_main.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=320, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96'))
+                hist_df = demo.get_demo_price_history(btc_row["current_price"]) if demo_mode else cached_price_history("bitcoin", currency, days_map[timeframe])
+                fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
+                fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.1)', line=dict(width=3))
+                fig_main.update_layout(
+                    margin=dict(l=0, r=0, t=20, b=0), height=280,
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(showgrid=False, color='#77788A'), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', color='#77788A')
+                )
                 st.plotly_chart(fig_main, use_container_width=True)
-            except Exception: st.warning("⚠️ Grafik API Limit.")
+            except Exception: st.warning("⚠️ Gagal memuat grafik.")
 
     with col_movers:
         with st.container(border=True):
-            st.markdown("#### 🚀 Top Gainers")
-            gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(4)
+            st.markdown("#### Top Gainers ⚡")
+            gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(5)
             for _, row in gainers.iterrows():
-                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'><div style='display:flex; gap:8px; align-items:center;'><img src='{row['image']}' width='20' height='20'><div><b>{row['symbol_upper']}</b><br><span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span></div></div><span class='text-green' style='font-weight:bold;'>+{row['price_change_percentage_24h']:.2f}%</span></div>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin:10px 0; border-color:#1E222D;'>", unsafe_allow_html=True)
-            st.markdown("#### 🔻 Top Losers")
-            losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(4)
+                st.markdown(f"""
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
+                    <div style='display:flex; gap:10px; align-items:center;'>
+                        <img src="{row['image']}" width="24" height="24">
+                        <div>
+                            <div style='font-weight:600; font-size:0.85rem; color:#171827;'>{row['name']}</div>
+                            <div style='font-size:0.7rem; color:#77788A;'>{row['symbol_upper']}</div>
+                        </div>
+                    </div>
+                    <div style='text-align:right;'>
+                        <div class='text-green'>+{row['price_change_percentage_24h']:.2f}%</div>
+                        <div style='font-size:0.7rem; color:#77788A;'>{formatting.format_money(row['current_price'], currency)}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("<hr style='margin:15px 0; border-color:#E9E6F0;'>", unsafe_allow_html=True)
+            st.markdown("#### Top Losers ⚡")
+            losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(5)
             for _, row in losers.iterrows():
-                st.markdown(f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'><div style='display:flex; gap:8px; align-items:center;'><img src='{row['image']}' width='20' height='20'><div><b>{row['symbol_upper']}</b><br><span style='font-size:0.75rem; color:#868B96;'>{formatting.format_money(row['current_price'], currency)}</span></div></div><span class='text-red' style='font-weight:bold;'>{row['price_change_percentage_24h']:.2f}%</span></div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
+                    <div style='display:flex; gap:10px; align-items:center;'>
+                        <img src="{row['image']}" width="24" height="24">
+                        <div>
+                            <div style='font-weight:600; font-size:0.85rem; color:#171827;'>{row['name']}</div>
+                            <div style='font-size:0.7rem; color:#77788A;'>{row['symbol_upper']}</div>
+                        </div>
+                    </div>
+                    <div style='text-align:right;'>
+                        <div class='text-red'>{row['price_change_percentage_24h']:.2f}%</div>
+                        <div style='font-size:0.7rem; color:#77788A;'>{formatting.format_money(row['current_price'], currency)}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-    st.markdown("### Tabel Data Pasar")
-    st.caption("💡 Klik pada baris tabel untuk melihat detail pergerakan harga koin tersebut.")
-    filtered_df = search.filter_coins(market_df, search_query)
-    table_source = filtered_df if not filtered_df.empty else market_df
-    
-    display_df = pd.DataFrame({
-        "#": range(1, len(table_source) + 1),
-        "Logo": table_source["image"],
-        "Nama": table_source["name"],
-        "Simbol": table_source["symbol_upper"],
-        "Harga": table_source["current_price"].map(lambda v: formatting.format_money(v, currency)),
-        "24h (%)": table_source["price_change_percentage_24h"].map(lambda v: f"{v:.2f}%"),
-        "Volume 24h": table_source["total_volume"].map(lambda v: f"{v:,.0f}"),
-        "Kap. Pasar": table_source["market_cap"].map(lambda v: f"{v:,.0f}")
-    })
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    event = st.dataframe(
-        display_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row",
-        column_config={"Logo": st.column_config.ImageColumn("", width="small"), "Harga": st.column_config.TextColumn("Harga"), "Volume 24h": st.column_config.TextColumn("Volume 24h"), "Kap. Pasar": st.column_config.TextColumn("Kap. Pasar")}
-    )
+    # --- ROW 3: TABEL DATA PASAR ---
+    with st.container(border=True):
+        st.markdown("#### Market Table")
+        filtered_df = search.filter_coins(market_df, search_query)
+        table_source = filtered_df if not filtered_df.empty else market_df
+        
+        display_df = pd.DataFrame({
+            "#": range(1, len(table_source) + 1),
+            "Coin": table_source["name"],
+            "Ticker": table_source["symbol_upper"],
+            "Price": table_source["current_price"].map(lambda v: formatting.format_money(v, currency)),
+            "24h %": table_source["price_change_percentage_24h"].map(lambda v: f"{v:.2f}%"),
+            "24h Volume": table_source["total_volume"].map(lambda v: formatting.format_money(v, currency)),
+            "Market Cap": table_source["market_cap"].map(lambda v: formatting.format_money(v, currency)),
+        })
 
-    if len(event.selection.rows) > 0:
-        selected_idx = event.selection.rows[0]
-        selected_coin_id = table_source.iloc[selected_idx]["id"]
-        selected_coin_name = table_source.iloc[selected_idx]["name"]
-        st.markdown(f"### 📊 Detail Chart: {selected_coin_name}")
-        try:
-            detail_hist = demo.get_demo_price_history(table_source.iloc[selected_idx]["current_price"]) if demo_mode else cached_price_history(selected_coin_id, currency, 30)
-            fig_detail = px.line(detail_hist, x="waktu", y="price", color_discrete_sequence=['#00E676'])
-            fig_detail.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, color='#868B96'), yaxis=dict(showgrid=True, gridcolor='#1E222D', color='#868B96'))
-            st.plotly_chart(fig_detail, use_container_width=True)
-        except Exception: st.warning("Gagal memuat detail grafik (API limit).")
+        st.dataframe(
+            display_df, 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                "Coin": st.column_config.TextColumn("Coin", width="medium"),
+                "24h %": st.column_config.TextColumn("24h %", width="small"),
+            }
+        )
 
 # ===========================================================================
 # MENU 2: TRADING JOURNAL
