@@ -111,18 +111,18 @@ market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 # MENU 1: MARKET OVERVIEW
 # ===========================================================================
 if menu == "🏠 Market Overview":
-    # --- HEADER ---
-    col_title, col_search = st.columns([3, 1])
+    # --- 1. HEADER BAR ---
+    col_title, col_search = st.columns([2.5, 1.5])
     with col_title:
         st.markdown("<h1 style='margin-bottom:0;'>Market Overview</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#77788A; font-size:0.95rem;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:1rem; margin-top:5px;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
     with col_search:
         st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
         search_query = st.text_input("Search", placeholder="🔍 Search coins, pairs, or categories...", label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- KARTU TOP 4 ---
+    # --- 2. KARTU TOP 4 ---
     top4_df = market_df.head(4)
     cols = st.columns(4)
     for col, (_, row) in zip(cols, top4_df.iterrows()):
@@ -137,7 +137,7 @@ if menu == "🏠 Market Overview":
                     <div style='display:flex; gap:10px; align-items:center;'>
                         <img src="{row['image']}" width="28" height="28">
                         <div>
-                            <div style='font-weight:700; font-size:0.95rem; color:#171827;'>{row['name']}</div>
+                            <div style='font-weight:700; font-size:1rem; color:#171827;'>{row['name']}</div>
                             <div style='font-size:0.75rem; color:#77788A;'>{row['symbol_upper']}</div>
                         </div>
                     </div>
@@ -156,8 +156,9 @@ if menu == "🏠 Market Overview":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- GRAFIK BESAR & GAINERS/LOSERS ---
-    col_chart, col_movers = st.columns([2.2, 1])
+    # --- 3. GRAFIK BESAR & GAINERS/LOSERS ---
+    col_chart, col_right_side = st.columns([2.3, 1]) # Lebar grafik ditambah, kanan dipersempit
+    
     with col_chart:
         with st.container(border=True):
             c_t1, c_t2 = st.columns([2, 1.5])
@@ -171,10 +172,7 @@ if menu == "🏠 Market Overview":
             btc_row = market_df[market_df["id"] == "bitcoin"].iloc[0]
             total_mcap = market_df["market_cap"].sum()
             
-            if currency == "IDR":
-                mcap_str = f"Rp{total_mcap / 1_000_000_000_000_000:.2f} Kuadriliun"
-            else:
-                mcap_str = f"${total_mcap / 1_000_000_000_000:.2f} T"
+            mcap_str = f"Rp{total_mcap / 1_000_000_000_000_000:.2f} Kuadriliun" if currency == "IDR" else f"${total_mcap / 1_000_000_000_000:.2f} T"
 
             st.markdown(f"<p style='font-size:0.85rem; color:#77788A; margin-top:15px; margin-bottom:0;'>Total Market Cap</p>", unsafe_allow_html=True)
             st.markdown(f"<h2 style='margin:0;'>{mcap_str}</h2>", unsafe_allow_html=True)
@@ -183,7 +181,7 @@ if menu == "🏠 Market Overview":
             try:
                 hist_df = demo.get_demo_price_history(btc_row["current_price"]) if demo_mode else cached_price_history("bitcoin", currency, days_map[timeframe])
                 fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
-                fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.1)', line=dict(width=2))
+                fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.08)', line=dict(width=2))
                 fig_main.update_layout(
                     margin=dict(l=0, r=0, t=10, b=0), height=280,
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
@@ -193,53 +191,56 @@ if menu == "🏠 Market Overview":
                 st.plotly_chart(fig_main, use_container_width=True)
             except Exception: st.warning("⚠️ Gagal memuat grafik.")
 
-    with col_movers:
+    with col_right_side:
+        # --- KOTAK GAINERS ---
         with st.container(border=True):
             st.markdown("<p style='font-weight:700; font-size:1.1rem; color:#171827; margin-bottom:15px;'>Top Gainers ⚡</p>", unsafe_allow_html=True)
             gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(5)
             for _, row in gainers.iterrows():
                 st.markdown(f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;'>
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
                     <div style='display:flex; gap:10px; align-items:center;'>
                         <img src="{row['image']}" width="24" height="24">
                         <div>
-                            <div style='font-weight:700; font-size:0.9rem; color:#171827;'>{row['name']}</div>
-                            <div style='font-size:0.75rem; color:#77788A;'>{row['symbol_upper']}</div>
+                            <div style='font-weight:700; font-size:0.85rem; color:#171827;'>{row['name']}</div>
+                            <div style='font-size:0.7rem; color:#77788A;'>{row['symbol_upper']}</div>
                         </div>
                     </div>
                     <div style='text-align:right;'>
                         <div class='text-green'>+{row['price_change_percentage_24h']:.2f}%</div>
-                        <div style='font-size:0.75rem; color:#77788A;'>{formatting.format_money(row['current_price'], currency)}</div>
+                        <div style='font-size:0.7rem; color:#77788A;'>{formatting.format_money(row['current_price'], currency)}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-            
-            st.markdown("<hr style='margin:15px 0; border-color:#E9E6F0;'>", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- KOTAK LOSERS ---
+        with st.container(border=True):
             st.markdown("<p style='font-weight:700; font-size:1.1rem; color:#171827; margin-bottom:15px;'>Top Losers ⚡</p>", unsafe_allow_html=True)
             losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(5)
             for _, row in losers.iterrows():
                 st.markdown(f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;'>
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;'>
                     <div style='display:flex; gap:10px; align-items:center;'>
                         <img src="{row['image']}" width="24" height="24">
                         <div>
-                            <div style='font-weight:700; font-size:0.9rem; color:#171827;'>{row['name']}</div>
-                            <div style='font-size:0.75rem; color:#77788A;'>{row['symbol_upper']}</div>
+                            <div style='font-weight:700; font-size:0.85rem; color:#171827;'>{row['name']}</div>
+                            <div style='font-size:0.7rem; color:#77788A;'>{row['symbol_upper']}</div>
                         </div>
                     </div>
                     <div style='text-align:right;'>
                         <div class='text-red'>{row['price_change_percentage_24h']:.2f}%</div>
-                        <div style='font-size:0.75rem; color:#77788A;'>{formatting.format_money(row['current_price'], currency)}</div>
+                        <div style='font-size:0.7rem; color:#77788A;'>{formatting.format_money(row['current_price'], currency)}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- TABEL DATA PASAR ---
+    # --- 4. MARKET TABLE ---
     with st.container(border=True):
-        c_t1, c_t2 = st.columns([2, 1])
-        c_t1.markdown("<p style='font-weight:700; font-size:1.2rem; color:#171827; margin-bottom:10px;'>Market Table</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-weight:700; font-size:1.2rem; color:#171827; margin-bottom:10px;'>Market Table</p>", unsafe_allow_html=True)
         
         filtered_df = search.filter_coins(market_df, search_query)
         table_source = filtered_df if not filtered_df.empty else market_df
