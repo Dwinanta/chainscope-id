@@ -1,10 +1,10 @@
+[theme]
+base = "light"
+primaryColor = "#6C35D9"
+backgroundColor = "#F8F7FC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#171827"
+font = "sans serif"
+
 [browser]
 gatherUsageStats = false
-
-[theme]
-base = "dark"
-primaryColor = "#2962FF"        # Biru elektrik untuk aksen
-backgroundColor = "#0B0E14"     # Hitam kebiruan (sangat gelap)
-secondaryBackgroundColor = "#131722" # Abu-abu gelap untuk sidebar & card
-textColor = "#D1D4DC"           # Putih keabu-abuan (nyaman di mata)
-font = "sans serif"
