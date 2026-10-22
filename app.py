@@ -26,6 +26,7 @@ user = st.session_state.user
 user_profile = db.get_user_profile(user.id)
 is_dev = user_profile.get("role") == "dev"
 sub_tier = user_profile.get("subscription_tier", "free").title()
+end_date = user_profile.get("subscription_end") 
 
 # 3. FUNGSI CACHE API
 @st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
@@ -47,11 +48,11 @@ def cached_usd_idr_rate() -> float:
         pass
     return float(config.DEMO_USD_TO_IDR)
 
-# 4. SIDEBAR
+# 4. SIDEBAR (Hanya Logo & Menu)
 with st.sidebar:
     # Logo
     st.markdown("""
-        <div style='display:flex; align-items:center; gap:10px; margin-bottom: 30px; padding-left: 10px;'>
+        <div style='display:flex; align-items:center; gap:10px; margin-bottom: 30px; padding-left: 10px; margin-top: 10px;'>
             <div style='background: #6C35D9; padding: 8px 12px; border-radius: 10px;'>
                 <span style='color:white; font-size:1.5rem;'>⚡</span>
             </div>
@@ -59,19 +60,6 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown(f"👤 **{user.email}**")
-    end_date = user_profile.get("subscription_end")
-    if end_date:
-        st.info(f"🌟 Plan: **{sub_tier}**\n\nAktif s/d: {end_date[:10]}")
-    else:
-        st.info(f"🌟 Plan: **{sub_tier}**")
-        
-    if is_dev:
-        st.success("👑 Dev Mode Aktif")
-    
-    if st.button("🚪 Logout", use_container_width=True):
-        auth.logout_user()
-
     st.markdown("---")
     
     menu_options = [
@@ -111,16 +99,37 @@ market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 # MENU 1: MARKET OVERVIEW
 # ===========================================================================
 if menu == "🏠 Market Overview":
-    # --- 1. HEADER BAR ---
-    col_title, col_search = st.columns([2.5, 1.5])
+    # --- HEADER BAR DENGAN PROFILE DROPDOWN ---
+    col_title, col_search, col_profile = st.columns([2.5, 2, 0.5])
+    
     with col_title:
         st.markdown("<h1 style='margin-bottom:0;'>Market Overview</h1>", unsafe_allow_html=True)
         st.markdown("<p style='font-size:1rem; margin-top:5px;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
+        
     with col_search:
         st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
         search_query = st.text_input("Search", placeholder="🔍 Search coins, pairs, or categories...", label_visibility="collapsed")
+        
+    with col_profile:
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        
+        # === FITUR PROFILE DROPDOWN ===
+        with st.popover("👤"): # Tombol Avatar
+            st.markdown(f"### 👤 {user.email}")
+            st.markdown(f"**Plan:** {sub_tier}")
+            if end_date:
+                st.markdown(f"**Aktif s/d:** {end_date[:10]}")
+            
+            if is_dev:
+                st.success("👑 Dev Mode")
+                
+            st.markdown("---")
+            if st.button("🚪 Logout", use_container_width=True, type="primary"):
+                auth.logout_user()
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- (Sisa kode Kartu Top 4, Grafik, dan Tabel tetap sama seperti sebelumnya) ---
 
     # --- 2. KARTU TOP 4 ---
     top4_df = market_df.head(4)
