@@ -1,4 +1,4 @@
-"""Modul UI Premium (Light Mode - Ultimate Sidebar Fix)."""
+"""Modul UI Premium (Light Mode - Tight Layout & No Radio Circles)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -9,19 +9,36 @@ def apply_premium_theme():
     /* 1. Background & Font */
     .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
     header[data-testid="stHeader"] { display: none !important; }
-    .block-container { padding-top: 1.5rem !important; max-width: 95% !important; }
-
-    /* 2. Sidebar (Hilangkan Bulatan 100%) */
-    [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E9E6F0 !important; }
     
-    /* Target super spesifik untuk menghapus lingkaran putih/ungu radio button */
+    /* Sempitkan Margin Utama */
+    .block-container { 
+        padding-top: 1.5rem !important; 
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 100% !important; 
+    }
+
+    /* 2. Sidebar (Hilangkan Bulatan Radio & Rapatkan) */
+    [data-testid="stSidebar"] { 
+        background-color: #FFFFFF !important; 
+        border-right: 1px solid #E9E6F0 !important; 
+        padding-top: 0rem !important;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1rem !important; /* Logo lebih ke atas */
+    }
+    
+    /* KILL RADIO BUTTON CIRCLES (Target semua kemungkinan class) */
+    [data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child { display: none !important; }
     [data-testid="stSidebar"] div[data-baseweb="radio"] > div:first-child { display: none !important; }
     [data-testid="stSidebar"] div[data-baseweb="radio"] > div[role="radio"] > div:first-child { display: none !important; }
-    
+    [data-testid="stSidebar"] input[type="radio"] { display: none !important; }
+
+    /* Style Label Menu */
     [data-testid="stSidebar"] div[role="radiogroup"] label {
-        padding: 12px 16px !important;
-        border-radius: 10px !important;
-        margin-bottom: 4px !important;
+        padding: 10px 12px !important;
+        border-radius: 8px !important;
+        margin-bottom: 2px !important;
         transition: all 0.2s !important;
         color: #77788A !important;
         cursor: pointer !important;
@@ -61,20 +78,12 @@ def apply_premium_theme():
     .text-green { color: #16834A !important; font-weight: 700; }
     .text-red { color: #D83D50 !important; font-weight: 700; }
 
-    /* 6. Popover Profile Menu (Pojok Kanan Atas) */
+    /* 6. Popover Profile Menu */
     div[data-testid="stPopover"] button {
-        background-color: #FFFFFF !important;
-        border: 1px solid #E9E6F0 !important;
-        border-radius: 50% !important;
-        width: 45px !important;
-        height: 45px !important;
-        padding: 0 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        font-size: 1.2rem !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+        background-color: #FFFFFF !important; border: 1px solid #E9E6F0 !important; border-radius: 50% !important;
+        width: 45px !important; height: 45px !important; padding: 0 !important;
+        display: flex !important; justify-content: center !important; align-items: center !important;
+        font-size: 1.2rem !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
     }
-    div[data-testid="stPopover"] button:hover { background-color: #F8F7FC !important; border-color: #6C35D9 !important; }
     </style>
     """, unsafe_allow_html=True)

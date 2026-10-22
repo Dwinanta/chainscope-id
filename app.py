@@ -48,22 +48,23 @@ def cached_usd_idr_rate() -> float:
         pass
     return float(config.DEMO_USD_TO_IDR)
 
-# 4. SIDEBAR (Hanya Logo & Menu)
+# 4. SIDEBAR 
 with st.sidebar:
-    # Logo
+    # Logo (Rapat ke atas & kiri)
     st.markdown("""
-        <div style='display:flex; align-items:center; gap:10px; margin-bottom: 30px; padding-left: 10px; margin-top: 10px;'>
-            <div style='background: #6C35D9; padding: 8px 12px; border-radius: 10px;'>
-                <span style='color:white; font-size:1.5rem;'>⚡</span>
+        <div style='display:flex; align-items:center; gap:8px; margin-bottom: 20px; padding-left: 0px;'>
+            <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
+                <span style='color:white; font-size:1.2rem;'>⚡</span>
             </div>
-            <span style='font-size:1.4rem; font-weight:800; color:#171827;'>ChainScope <span style='color:#6C35D9;'>ID</span></span>
+            <span style='font-size:1.2rem; font-weight:800; color:#171827;'>ChainScope <span style='color:#6C35D9;'>ID</span></span>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("---")
     
+    # Tambahkan Menu "Market"
     menu_options = [
-        "🏠 Market Overview", "📒 Trading Journal", "🔔 Price Alerts", 
+        "🏠 Market Overview", "📊 Market", "📒 Trading Journal", "🔔 Price Alerts", 
         "📉 Technical Analysis", "📈 Compare", "💼 Portfolio", 
         "💱 Converter", "⭐ Watchlist", "🚀 Gainers & Losers", 
         "📄 Laporan PDF"
@@ -247,10 +248,19 @@ if menu == "🏠 Market Overview":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 4. MARKET TABLE ---
+# ===========================================================================
+# MENU BARU: MARKET DATA (Tabel Lengkap)
+# ===========================================================================
+elif menu == "📊 Market":
+    st.markdown("<h1 style='margin-bottom:0;'>Market Data</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:1rem; margin-top:5px;'>Semua koin beserta filter dan data lengkap.</p>", unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Filter Pencarian
+    search_query = st.text_input("🔍 Cari koin (nama atau simbol)...", placeholder="Contoh: Bitcoin, ETH, Solana")
+    
     with st.container(border=True):
-        st.markdown("<p style='font-weight:700; font-size:1.2rem; color:#171827; margin-bottom:10px;'>Market Table</p>", unsafe_allow_html=True)
-        
         filtered_df = search.filter_coins(market_df, search_query)
         table_source = filtered_df if not filtered_df.empty else market_df
         
@@ -273,10 +283,10 @@ if menu == "🏠 Market Overview":
                 "24h %": st.column_config.TextColumn("24h %", width="small"),
             }
         )
-
 # ===========================================================================
 # MENU LAINNYA (Bisa diisi kembali kodemu yang lama)
 # ===========================================================================
+
 elif menu == "📒 Trading Journal":
     st.info("Fitur Trading Journal siap digunakan.")
 elif menu == "🔔 Price Alerts":
