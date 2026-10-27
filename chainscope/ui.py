@@ -1,4 +1,4 @@
-"""Modul UI Premium (No Scrollbar Sidebar)."""
+"""Modul UI Premium (Zero Top Space)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -6,43 +6,39 @@ def apply_premium_theme():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
+    /* 1. Reset Dasar */
     .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
     header[data-testid="stHeader"] { display: none !important; }
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
     
-    /* ==========================================
-       1. MENGATASI SCROLLBAR SIDEBAR
-       ========================================== */
-    [data-testid="stSidebar"] { 
-        background-color: #FFFFFF !important; 
-        border-right: 1px solid #E9E6F0 !important; 
+    /* 2. BUNUH RUANG KOSONG DI ATAS SIDEBAR */
+    /* Menghapus margin/padding bawaan Streamlit */
+    [data-testid="stSidebar"] > div:first-child { 
+        padding-top: 0rem !important; 
+        margin-top: 0rem !important; 
+    }
+    [data-testid="stSidebarUserContent"] { 
+        padding-top: 0rem !important; 
+        padding-bottom: 2rem !important;
     }
     
-    /* Sembunyikan scrollbar di semua browser */
+    /* Tembak langsung class yang ada di screenshot kamu */
+    .st-emotion-cache-10p9htt {
+        height: 0px !important;
+        margin-bottom: 0px !important;
+        padding: 0px !important;
+        display: none !important;
+    }
+    
+    /* Sembunyikan Scrollbar */
     [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
     [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     
-    /* Paksa container di dalam sidebar menyesuaikan tinggi konten */
-    [data-testid="stSidebarUserContent"] { 
-        padding-bottom: 2rem !important; 
-        height: auto !important; 
-    }
-    
-    /* Tarik margin atas agar pas */
-    [data-testid="stSidebar"] > div:first-child { 
-        padding-top: 0rem !important; 
-        margin-top: -1.5rem !important; 
-    }
-    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { 
-        gap: 0.1rem !important; 
-        padding-top: 0rem !important; 
-    }
-    
-    /* Sembunyikan tombol panah */
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
+    /* Jarak antar tombol menu */
+    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.1rem !important; }
 
     /* ==========================================
-       2. STYLING LOGO & MENU
+       3. STYLING LOGO & MENU
        ========================================== */
     .logo-container {
         display: flex; align-items: center; gap: 8px; 
@@ -66,7 +62,7 @@ def apply_premium_theme():
     }
     
     /* ==========================================
-       3. KONTEN UTAMA
+       4. KONTEN UTAMA
        ========================================== */
     div[data-baseweb="input"] { background-color: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E9E6F0 !important; padding: 2px 10px !important; }
     div[data-baseweb="input"] input { color: #171827 !important; }
