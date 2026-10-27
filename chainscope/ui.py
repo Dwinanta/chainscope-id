@@ -1,4 +1,4 @@
-"""Modul UI Premium (Zero Top Space & Perfect Spacing)."""
+"""Modul UI Premium (Locked Sidebar & Perfect Spacing)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -11,7 +11,21 @@ def apply_premium_theme():
     header[data-testid="stHeader"] { display: none !important; }
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
     
-    /* 2. SIDEBAR: Tarik ke atas, hilangkan scrollbar */
+    /* 2. KUNCI SIDEBAR (Tidak Bisa Di-hide) */
+    [data-testid="stSidebar"] {
+        background-color: #FFFFFF !important;
+        border-right: 1px solid #E9E6F0 !important;
+        min-width: 280px !important;  /* Paksa lebar minimum */
+        max-width: 280px !important;  /* Paksa lebar maksimum */
+        transform: none !important;   /* Cegah animasi hide */
+        visibility: visible !important;
+    }
+    
+    /* Sembunyikan total tombol panah (collapse/expand) */
+    [data-testid="stSidebarCollapseButton"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    
+    /* Rapikan jarak sidebar */
     [data-testid="stSidebar"] > div:first-child { 
         padding-top: 0rem !important; 
         margin-top: -1.5rem !important; 
@@ -25,15 +39,13 @@ def apply_premium_theme():
     [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
     [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     
-    /* Jarak antar tombol menu (dibuat sedikit renggang agar tidak dempet) */
+    /* Jarak antar tombol menu */
     [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
 
-    /* ==========================================
-       3. STYLING LOGO & MENU
-       ========================================== */
+    /* 3. STYLING LOGO & MENU */
     .logo-container {
         display: flex; align-items: center; gap: 8px; 
-        margin: 0.5rem 0rem 1.5rem 0rem; /* Jarak bawah logo diperlebar */
+        margin: 1.5rem 0rem 1.5rem 0rem; /* Jarak atas & bawah logo */
         padding-left: 10px;
     }
     
@@ -52,9 +64,7 @@ def apply_premium_theme():
         background-color: #F0E9FF !important; color: #6C35D9 !important; font-weight: 700 !important;
     }
     
-    /* ==========================================
-       4. KONTEN UTAMA
-       ========================================== */
+    /* 4. KONTEN UTAMA */
     div[data-baseweb="input"] { background-color: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E9E6F0 !important; padding: 2px 10px !important; }
     div[data-baseweb="input"] input { color: #171827 !important; }
     
