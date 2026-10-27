@@ -244,11 +244,13 @@ elif st.session_state.current_page == "📉 Technical Analysis":
     
     # Ambil koin dari session state (jika baru diklik dari tabel)
     default_coin = st.session_state.get("selected_technical_coin", "bitcoin")
-    default_idx = market_df[market_df["id"] == default_coin].index[0] if default_coin in market_df["id"].values else 0
+        # Tambahkan int() di sini
+    default_idx = int(market_df[market_df["id"] == default_coin].index[0]) if default_coin in market_df["id"].values else 0
     
     with st.container(border=True):
         c1, c2 = st.columns([2, 2])
-        tech_label = c1.selectbox("Pilih Koin:", market_df["label"].tolist(), index=default_idx)
+        # Pastikan index juga dibungkus int() untuk jaga-jaga
+        tech_label = c1.selectbox("Pilih Koin:", market_df["label"].tolist(), index=int(default_idx))
         tf = c2.selectbox("Timeframe", ["1D", "7D", "1M", "1Y"], index=1)
         
         # Opsi Indikator
