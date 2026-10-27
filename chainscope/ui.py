@@ -1,79 +1,43 @@
-"""Modul UI Premium (Perfect Spacing & No Scrollbar)."""
-import streamlit as st
-
-def apply_premium_theme():
+# 5. SIDEBAR
+with st.sidebar:
+    # LOGO
     st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    /* 1. Reset Dasar & Background */
-    .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
-    header[data-testid="stHeader"] { display: none !important; }
-    .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
-    
-    /* 2. SIDEBAR: Spasi Pas & Hilangkan Scrollbar */
-    [data-testid="stSidebar"] { 
-        background-color: #FFFFFF !important; 
-        border-right: 1px solid #E9E6F0 !important; 
-        overflow-y: hidden !important; /* Sembunyikan scrollbar vertikal */
-    }
-    
-    /* Tarik konten ke atas, tapi jangan terlalu ekstrem */
-    [data-testid="stSidebar"] > div:first-child { 
-        padding-top: 0rem !important; 
-        margin-top: -1.5rem !important; 
-    }
-    [data-testid="stSidebar"] .block-container { 
-        padding-top: 0rem !important; 
-        margin-top: 0rem !important; 
-    }
-    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { 
-        gap: 0.1rem !important; /* Jarak antar tombol sangat tipis */
-        padding-top: 0rem !important; 
-    }
-    
-    /* Sembunyikan tombol panah collapse streamlit */
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
-
-    /* 3. LOGO & MENU */
-    .logo-container {
-        display: flex; align-items: center; gap: 8px; 
-        margin: 0.5rem 0rem 1rem 0rem; /* Spasi yang pas */
-        padding-left: 10px;
-    }
-    
-    [data-testid="stSidebar"] .stButton > button {
-        background-color: transparent !important; border: none !important;
-        color: #77788A !important; font-weight: 500 !important;
-        text-align: left !important; justify-content: flex-start !important;
-        padding: 6px 12px !important; border-radius: 6px !important;
-        font-size: 0.9rem !important; box-shadow: none !important;
-        min-height: 34px !important; /* Tinggi tombol sedikit lebih kecil */
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #F8F7FC !important; color: #171827 !important;
-    }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background-color: #F0E9FF !important; color: #6C35D9 !important; font-weight: 700 !important;
-    }
-    
-    /* 4. Konten Utama */
-    div[data-baseweb="input"] { background-color: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E9E6F0 !important; padding: 2px 10px !important; }
-    div[data-baseweb="input"] input { color: #171827 !important; }
-    
-    div[data-testid="stSegmentedControl"] { background-color: #F8F7FC !important; padding: 4px; border-radius: 8px; }
-    div[data-testid="stSegmentedControl"] button { color: #77788A !important; border: none !important; }
-    div[data-testid="stSegmentedControl"] button[aria-checked="true"] { background-color: #FFFFFF !important; color: #6C35D9 !important; border-radius: 6px !important; font-weight: 700 !important; }
-
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #FFFFFF !important; border-radius: 16px !important;
-        border: 1px solid #E9E6F0 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
-        padding: 15px !important;
-    }
-
-    h1 { color: #171827 !important; font-weight: 800 !important; font-size: 1.8rem !important; }
-    h2 { color: #171827 !important; font-weight: 800 !important; font-size: 1.4rem !important; }
-    .text-green { color: #16834A !important; font-weight: 700; }
-    .text-red { color: #D83D50 !important; font-weight: 700; }
-    </style>
+        <div class='logo-container'>
+            <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
+                <span style='color:white; font-size:1.2rem;'>⚡</span>
+            </div>
+            <span style='font-size:1.2rem; font-weight:800; color:#171827;'>ChainScope <span style='color:#6C35D9;'>ID</span></span>
+        </div>
     """, unsafe_allow_html=True)
+    
+    # Garis pemisah
+    st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
+
+    # TOMBOL MENU
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "market-overview"
+
+    menu_config = {
+        "market-overview": "🏠 Market Overview",
+        "market-data": "📊 Market Data",
+        "trading-journal": "📒 Trading Journal",
+        "price-alerts": "🔔 Price Alerts",
+        "technical-analysis": "📉 Technical Analysis",
+        "portfolio": "💼 Portfolio",
+        "converter": "💱 Converter",
+        "watchlist": "⭐ Watchlist"
+    }
+    if is_dev:
+        menu_config["admin-panel"] = "👑 Admin Panel"
+
+    for url_key, display_name in menu_config.items():
+        is_active = (st.session_state.current_page == url_key)
+        if st.button(display_name, use_container_width=True, key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
+            st.session_state.current_page = url_key
+            st.rerun()
+
+    # PENGATURAN (Mata Uang, dll)
+    st.markdown("---")
+    currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
+    coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
+    demo_mode = st.checkbox("Mode Demo", value=False)
