@@ -1,4 +1,4 @@
-"""Modul UI Premium (Custom Sidebar Menu)."""
+"""Modul UI Premium (Ultimate Sidebar Redesign)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -12,18 +12,10 @@ def apply_premium_theme():
     
     [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E9E6F0 !important; }
     
-    /* SEMBUNYIKAN MENU RADIO ASLI STREAMLIT */
-    [data-testid="stSidebar"] div[role="radiogroup"] { display: none !important; }
+    /* CSS Fallback (Jika JS terlambat jalan) */
+    [data-testid="stSidebar"] input[type="radio"] { display: none !important; }
+    [data-testid="stSidebar"] div[data-baseweb="radio"] > div:first-child { display: none !important; }
     
-    /* STYLING MENU BUATAN KITA */
-    .custom-menu-item {
-        display: flex; align-items: center; gap: 10px; padding: 10px 16px;
-        border-radius: 8px; margin-bottom: 2px; transition: all 0.2s;
-        color: #77788A; text-decoration: none; font-size: 0.95rem; font-weight: 500;
-    }
-    .custom-menu-item:hover { background-color: #F8F7FC; color: #171827; }
-    .custom-menu-item.active { background-color: #F0E9FF; color: #6C35D9; font-weight: 700; }
-
     div[data-baseweb="input"] { background-color: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E9E6F0 !important; padding: 2px 10px !important; }
     div[data-baseweb="input"] input { color: #171827 !important; }
     
@@ -42,4 +34,55 @@ def apply_premium_theme():
     .text-green { color: #16834A !important; font-weight: 700; }
     .text-red { color: #D83D50 !important; font-weight: 700; }
     </style>
+    
+    <script>
+    // SCRIPT SAKTI UNTUK MENGHANCURKAN RADIO BUTTON
+    function hackSidebar() {
+        const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar) return;
+
+        // Cari semua label di dalam radio group
+        const labels = sidebar.querySelectorAll('div[role="radiogroup"] > label');
+        
+        labels.forEach(label => {
+            // Hapus div pertama (yang berisi lingkaran radio)
+            const firstDiv = label.querySelector('div:first-child');
+            if (firstDiv) firstDiv.style.display = 'none';
+            
+            // Ubah gaya label menjadi tombol kotak
+            label.style.padding = '10px 16px';
+            label.style.borderRadius = '8px';
+            label.style.marginBottom = '4px';
+            label.style.transition = 'all 0.2s';
+            label.style.cursor = 'pointer';
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            
+            // Cek apakah radio ini sedang terpilih
+            const input = label.querySelector('input');
+            const isChecked = input && input.checked;
+            
+            // Ambil teks aslinya
+            const textDiv = label.querySelector('div[data-testid="stMarkdownContainer"] p');
+            const text = textDiv ? textDiv.innerText : '';
+            
+            if (isChecked) {
+                label.style.backgroundColor = '#F0E9FF'; // Warna ungu muda
+                if (textDiv) textDiv.style.color = '#6C35D9'; // Teks ungu
+                if (textDiv) textDiv.style.fontWeight = '700';
+            } else {
+                label.style.backgroundColor = 'transparent';
+                if (textDiv) textDiv.style.color = '#77788A'; // Teks abu-abu
+                if (textDiv) textDiv.style.fontWeight = '500';
+            }
+
+            // Efek Hover
+            label.onmouseenter = () => { if (!isChecked) label.style.backgroundColor = '#F8F7FC'; };
+            label.onmouseleave = () => { if (!isChecked) label.style.backgroundColor = 'transparent'; };
+        });
+    }
+    
+    // Jalankan terus-menerus untuk mengantisipasi re-render Streamlit
+    setInterval(hackSidebar, 300);
+    </script>
     """, unsafe_allow_html=True)
