@@ -74,7 +74,7 @@ current_page_name = menu_config.get(current_url_page, "🏠 Market Overview")
 # 5. SIDEBAR
 with st.sidebar:
     st.markdown("""
-        <div style='display:flex; align-items:center; gap:8px; margin-bottom: 20px; padding-left: 0px; margin-top: 10px;'>
+        <div style='display:flex; align-items:center; gap:8px; margin: 0px 0px 15px 0px; padding: 0px;'>
             <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
                 <span style='color:white; font-size:1.2rem;'>⚡</span>
             </div>
@@ -82,7 +82,7 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("---")
+    st.markdown("<hr style='margin: 5px 0px 15px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
 
     # Gunakan Session State untuk Navigasi (Aman, tidak refresh browser)
     if "current_page" not in st.session_state:
