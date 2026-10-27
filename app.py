@@ -73,8 +73,9 @@ current_page_name = menu_config.get(current_url_page, "🏠 Market Overview")
 
 # 5. SIDEBAR
 with st.sidebar:
+    # LOGO (Menempel di pojok kiri atas)
     st.markdown("""
-        <div style='display:flex; align-items:center; gap:8px; margin: 0px 0px 15px 0px; padding: 0px;'>
+        <div class='logo-container' style='padding-left: 10px;'>
             <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
                 <span style='color:white; font-size:1.2rem;'>⚡</span>
             </div>
@@ -82,9 +83,10 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<hr style='margin: 5px 0px 15px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
+    # Garis pemisah tipis
+    st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
 
-    # Gunakan Session State untuk Navigasi (Aman, tidak refresh browser)
+    # Navigasi Tombol
     if "current_page" not in st.session_state:
         st.session_state.current_page = "market-overview"
 
@@ -101,12 +103,8 @@ with st.sidebar:
     if is_dev:
         menu_config["admin-panel"] = "👑 Admin Panel"
 
-    # Tampilkan tombol menu (Disembunyikan stylingnya lewat CSS)
     for url_key, display_name in menu_config.items():
-        # Cek apakah menu ini sedang aktif
         is_active = (st.session_state.current_page == url_key)
-        
-        # Jika diklik, ubah halaman di session state dan rerun
         if st.button(display_name, use_container_width=True, key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
             st.session_state.current_page = url_key
             st.rerun()
@@ -115,10 +113,7 @@ with st.sidebar:
     currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
     coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
     demo_mode = st.checkbox("Mode Demo", value=False)
-
-# Set variabel halaman aktif
-current_url_page = st.session_state.current_page
-current_page_name = menu_config.get(current_url_page, "🏠 Market Overview")
+    
 # 6. AMBIL DATA PASAR
 market_df = None
 if demo_mode:
