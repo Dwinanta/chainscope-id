@@ -1,5 +1,5 @@
 """
-ChainScope ID - Premium Light Mode (Final Navigation)
+ChainScope ID - Premium Light Mode (Full Features & Navigation)
 """
 from datetime import datetime
 import pandas as pd
@@ -17,7 +17,7 @@ from chainscope import (
 st.set_page_config(page_title="ChainScope ID", page_icon="📈", layout="wide")
 ui.apply_premium_theme()
 
-# 2. CEK AUTENTIKASI
+# 2. CEK AUTENTIKASI (Paling Atas)
 auth.check_session()
 if "user" not in st.session_state or st.session_state.user is None:
     auth.show_auth_page()
@@ -53,7 +53,7 @@ def cached_usd_idr_rate() -> float:
         pass
     return float(config.DEMO_USD_TO_IDR)
 
-# 4. MENU CONFIG (URL HARUS TANPA SPASI)
+# 4. MENU CONFIG (URL TANPA SPASI)
 menu_config = {
     "market-overview": "🏠 Market Overview",
     "market-data": "📊 Market Data",
@@ -67,12 +67,11 @@ menu_config = {
 if is_dev:
     menu_config["admin-panel"] = "👑 Admin Panel"
 
-# Ambil halaman aktif dari URL
 query_params = st.query_params
 current_url_page = query_params.get("page", "market-overview")
 current_page_name = menu_config.get(current_url_page, "🏠 Market Overview")
 
-# 5. SIDEBAR (HTML MURNI)
+# 5. SIDEBAR
 with st.sidebar:
     st.markdown("""
         <div style='display:flex; align-items:center; gap:8px; margin-bottom: 20px; padding-left: 0px; margin-top: 10px;'>
@@ -85,28 +84,9 @@ with st.sidebar:
     
     st.markdown("---")
     
-    menu_config = {
-        "market-overview": "🏠 Market Overview",
-        "market-data": "📊 Market Data",
-        "trading-journal": "📒 Trading Journal",
-        "price-alerts": "🔔 Price Alerts",
-        "technical-analysis": "📉 Technical Analysis",
-        "portfolio": "💼 Portfolio",
-        "converter": "💱 Converter",
-        "watchlist": "⭐ Watchlist"
-    }
-    if is_dev:
-        menu_config["admin-panel"] = "👑 Admin Panel"
-
-    query_params = st.query_params
-    current_url_page = query_params.get("page", "market-overview")
-
-    # Tampilkan Menu (Satu per satu dengan st.markdown agar aman)
     for url_key, display_name in menu_config.items():
         is_active = (current_url_page == url_key)
         active_class = "active" if is_active else ""
-        
-        # Format string HTML menjadi SATU BARIS UTUH tanpa enter
         link_html = f'<a href="?page={url_key}" target="_self" class="menu-link {active_class}">{display_name}</a>'
         st.markdown(link_html, unsafe_allow_html=True)
 
@@ -117,22 +97,17 @@ with st.sidebar:
 
 # 6. AMBIL DATA PASAR
 market_df = None
-data_source = "LIVE"
-
 if demo_mode:
     market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
-    data_source = "DEMO"
 else:
     try:
         market_df = cached_market_data(currency, coin_count)
     except Exception:
         market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
-        data_source = "DEMO (Fallback)"
 
 market_df = market_df.copy()
 market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
 market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
-
 
 # ===========================================================================
 # ROUTING HALAMAN
@@ -149,6 +124,7 @@ if current_page_name == "🏠 Market Overview":
         with st.popover("👤"):
             st.markdown(f"### 👤 {user.email}")
             st.markdown(f"**Plan:** {sub_tier}")
+            if end_date: st.markdown(f"**Aktif s/d:** {end_date[:10]}")
             if st.button("🚪 Logout", use_container_width=True, type="primary"): auth.logout_user()
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -258,7 +234,6 @@ elif current_page_name == "📊 Market Data":
 elif current_page_name == "📉 Technical Analysis":
     st.markdown("<h1>Technical Analysis</h1>", unsafe_allow_html=True)
     
-    # Ambil koin dari URL atau default
     default_coin = st.query_params.get("coin", "bitcoin")
     default_idx = int(market_df[market_df["id"] == default_coin].index[0]) if default_coin in market_df["id"].values else 0
     
@@ -320,4 +295,32 @@ elif current_page_name == "📉 Technical Analysis":
             
         except Exception as e: st.warning(f"Gagal memuat data teknikal: {e}")
 
-# ... (Menu lainnya: Trading Journal, Alerts, Portfolio, etc. Kamu bisa memasukkan kembali kode lamamu di sini dengan format `elif current_page_name == "Nama Menu":`)
+elif current_page_name == "📒 Trading Journal":
+    st.markdown("<h1>Trading Journal</h1>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.info("Fitur Trading Journal siap digunakan.")
+
+elif current_page_name == "🔔 Price Alerts":
+    st.markdown("<h1>Price Alerts</h1>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.info("Fitur Price Alerts siap digunakan.")
+
+elif current_page_name == "💼 Portfolio":
+    st.markdown("<h1>Portfolio</h1>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.info("Fitur Portofolio siap digunakan.")
+
+elif current_page_name == "💱 Converter":
+    st.markdown("<h1>Converter</h1>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.info("Fitur Converter siap digunakan.")
+
+elif current_page_name == "⭐ Watchlist":
+    st.markdown("<h1>Watchlist</h1>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.info("Fitur Watchlist siap digunakan.")
+
+elif current_page_name == "👑 Admin Panel" and is_dev:
+    st.markdown("<h1>Admin Panel</h1>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.info("Admin Panel siap digunakan.")
