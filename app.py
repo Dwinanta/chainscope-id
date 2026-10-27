@@ -56,7 +56,9 @@ if "current_page" not in st.session_state:
 def change_page(page_name):
     st.session_state.current_page = page_name
 
+# 4. SIDEBAR
 with st.sidebar:
+    # Logo
     st.markdown("""
         <div style='display:flex; align-items:center; gap:8px; margin-bottom: 20px; padding-left: 0px; margin-top: 10px;'>
             <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
@@ -68,24 +70,57 @@ with st.sidebar:
     
     st.markdown("---")
     
-    menu_options = [
-        "🏠 Market Overview", "📊 Market Data", "📒 Trading Journal", 
-        "🔔 Price Alerts", "📉 Technical Analysis", "💼 Portfolio", 
-        "💱 Converter", "⭐ Watchlist"
-    ]
-    if is_dev: menu_options.append("👑 Admin Panel")
+    menu_options = {
+        "🏠 Market Overview": "🏠 Market Overview",
+        "📊 Market Data": "📊 Market Data",
+        "📒 Trading Journal": "📒 Trading Journal",
+        "🔔 Price Alerts": "🔔 Price Alerts",
+        "📉 Technical Analysis": "📉 Technical Analysis",
+        "💼 Portfolio": "💼 Portfolio",
+        "💱 Converter": "💱 Converter",
+        "⭐ Watchlist": "⭐ Watchlist"
+    }
+    if is_dev:
+        menu_options["👑 Admin Panel"] = "👑 Admin Panel"
+
+    # Cek halaman aktif dari URL, default ke Market Overview
+    query_params = st.query_params
+    current_page = query_params.get("page", "🏠 Market Overview")
+
+    # Buat Menu HTML Murni
+    menu_html = "<div style='display:flex; flex-direction:column; gap:4px;'>"
+    for label, page_val in menu_options.items():
+        is_active = (current_page == page_val)
+        
+        bg_color = "#F0E9FF" if is_active else "transparent"
+        text_color = "#6C35D9" if is_active else "#77788A"
+        font_weight = "700" if is_active else "500"
+        
+        # Link akan mengubah URL ?page=NamaHalaman, yang memicu reload Streamlit
+        menu_html += f"""
+        <a href="?page={page_val}" target="_self" style="
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 16px; border-radius: 8px;
+            background-color: {bg_color}; color: {text_color} !important;
+            font-weight: {font_weight}; font-size: 0.95rem;
+            text-decoration: none; transition: all 0.2s;
+        " onmouseover="this.style.backgroundColor='#F8F7FC'" onmouseout="this.style.backgroundColor='{bg_color}'">
+            {label}
+        </a>
+        """
+    menu_html += "</div>"
     
-    # Cukup panggil st.radio seperti biasa, JS akan mengubah tampilannya
-    menu = st.radio("Navigasi", menu_options, label_visibility="collapsed")
-    
-    # Update session state (opsional, untuk navigasi antar halaman)
-    if menu != st.session_state.get("current_page"):
-        st.session_state.current_page = menu
+    # Tampilkan Menu
+    st.markdown(menu_html, unsafe_allow_html=True)
 
     st.markdown("---")
+    # Pengaturan Bawah
     currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
     coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
     demo_mode = st.checkbox("Mode Demo", value=False)
+
+# Ganti variabel menu dengan current_page dari URL
+menu = current_page
 
 # 5. AMBIL DATA PASAR
 market_df = None
