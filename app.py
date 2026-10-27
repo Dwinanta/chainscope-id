@@ -85,27 +85,30 @@ with st.sidebar:
     
     st.markdown("---")
     
-    menu_html = "<div style='display:flex; flex-direction:column; gap:4px;'>"
+    menu_config = {
+        "market-overview": "🏠 Market Overview",
+        "market-data": "📊 Market Data",
+        "trading-journal": "📒 Trading Journal",
+        "price-alerts": "🔔 Price Alerts",
+        "technical-analysis": "📉 Technical Analysis",
+        "portfolio": "💼 Portfolio",
+        "converter": "💱 Converter",
+        "watchlist": "⭐ Watchlist"
+    }
+    if is_dev:
+        menu_config["admin-panel"] = "👑 Admin Panel"
+
+    query_params = st.query_params
+    current_url_page = query_params.get("page", "market-overview")
+
+    # Tampilkan Menu (Satu per satu dengan st.markdown agar aman)
     for url_key, display_name in menu_config.items():
         is_active = (current_url_page == url_key)
-        bg = "#F0E9FF" if is_active else "transparent"
-        txt_color = "#6C35D9" if is_active else "#77788A"
-        fw = "700" if is_active else "500"
+        active_class = "active" if is_active else ""
         
-        menu_html += f"""
-        <a href="?page={url_key}" target="_self" style="
-            display: flex; align-items: center; gap: 10px;
-            padding: 10px 16px; border-radius: 8px;
-            background-color: {bg}; color: {txt_color} !important;
-            font-weight: {fw}; font-size: 0.95rem; text-decoration: none;
-            transition: all 0.2s;
-        " onmouseover="this.style.backgroundColor='#F8F7FC'" onmouseout="this.style.backgroundColor='{bg}'">
-            {display_name}
-        </a>
-        """
-    menu_html += "</div>"
-    
-    st.markdown(menu_html, unsafe_allow_html=True)
+        # Format string HTML menjadi SATU BARIS UTUH tanpa enter
+        link_html = f'<a href="?page={url_key}" target="_self" class="menu-link {active_class}">{display_name}</a>'
+        st.markdown(link_html, unsafe_allow_html=True)
 
     st.markdown("---")
     currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)

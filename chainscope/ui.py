@@ -1,4 +1,4 @@
-"""Modul UI Premium."""
+"""Modul UI Premium (Clean CSS)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -27,5 +27,15 @@ def apply_premium_theme():
     h2 { color: #171827 !important; font-weight: 800 !important; font-size: 1.4rem !important; }
     .text-green { color: #16834A !important; font-weight: 700; }
     .text-red { color: #D83D50 !important; font-weight: 700; }
+
+    /* STYLING LINK MENU */
+    .menu-container { display: flex; flex-direction: column; gap: 4px; }
+    .menu-link { 
+        display: flex; align-items: center; gap: 10px; padding: 10px 16px; 
+        border-radius: 8px; text-decoration: none; font-size: 0.95rem; 
+        font-weight: 500; color: #77788A !important; transition: all 0.2s; 
+    }
+    .menu-link:hover { background-color: #F8F7FC; color: #171827 !important; }
+    .menu-link.active { background-color: #F0E9FF; color: #6C35D9 !important; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
