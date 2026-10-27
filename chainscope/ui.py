@@ -1,4 +1,4 @@
-"""Modul UI Premium (Zero Top Space)."""
+"""Modul UI Premium (Zero Top Space & Perfect Spacing)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -11,38 +11,29 @@ def apply_premium_theme():
     header[data-testid="stHeader"] { display: none !important; }
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
     
-    /* 2. BUNUH RUANG KOSONG DI ATAS SIDEBAR */
-    /* Menghapus margin/padding bawaan Streamlit */
+    /* 2. SIDEBAR: Tarik ke atas, hilangkan scrollbar */
     [data-testid="stSidebar"] > div:first-child { 
         padding-top: 0rem !important; 
-        margin-top: 0rem !important; 
+        margin-top: -1.5rem !important; 
     }
     [data-testid="stSidebarUserContent"] { 
         padding-top: 0rem !important; 
         padding-bottom: 2rem !important;
     }
     
-    /* Tembak langsung class yang ada di screenshot kamu */
-    .st-emotion-cache-10p9htt {
-        height: 0px !important;
-        margin-bottom: 0px !important;
-        padding: 0px !important;
-        display: none !important;
-    }
-    
     /* Sembunyikan Scrollbar */
     [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
     [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     
-    /* Jarak antar tombol menu */
-    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.1rem !important; }
+    /* Jarak antar tombol menu (dibuat sedikit renggang agar tidak dempet) */
+    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
 
     /* ==========================================
        3. STYLING LOGO & MENU
        ========================================== */
     .logo-container {
         display: flex; align-items: center; gap: 8px; 
-        margin: 0.5rem 0rem 1rem 0rem; 
+        margin: 0.5rem 0rem 1.5rem 0rem; /* Jarak bawah logo diperlebar */
         padding-left: 10px;
     }
     
