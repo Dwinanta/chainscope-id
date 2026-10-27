@@ -37,5 +37,31 @@ def apply_premium_theme():
     }
     .menu-link:hover { background-color: #F8F7FC; color: #171827 !important; }
     .menu-link.active { background-color: #F0E9FF; color: #6C35D9 !important; font-weight: 700; }
+
+        /* MEMBUAT TOMBOL STREAMLIT MENJADI MIRIP MENU LINK */
+    [data-testid="stSidebar"] .stButton > button {
+        background-color: transparent !important;
+        border: none !important;
+        color: #77788A !important;
+        font-weight: 500 !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        padding: 10px 16px !important;
+        border-radius: 8px !important;
+        font-size: 0.95rem !important;
+        box-shadow: none !important;
+    }
+    
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #F8F7FC !important;
+        color: #171827 !important;
+    }
+    
+    /* Tombol yang sedang aktif (Primary) */
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
+        background-color: #F0E9FF !important;
+        color: #6C35D9 !important;
+        font-weight: 700 !important;
+    }
     </style>
     """, unsafe_allow_html=True)

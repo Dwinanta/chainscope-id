@@ -83,18 +83,42 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    
+
+    # Gunakan Session State untuk Navigasi (Aman, tidak refresh browser)
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "market-overview"
+
+    menu_config = {
+        "market-overview": "🏠 Market Overview",
+        "market-data": "📊 Market Data",
+        "trading-journal": "📒 Trading Journal",
+        "price-alerts": "🔔 Price Alerts",
+        "technical-analysis": "📉 Technical Analysis",
+        "portfolio": "💼 Portfolio",
+        "converter": "💱 Converter",
+        "watchlist": "⭐ Watchlist"
+    }
+    if is_dev:
+        menu_config["admin-panel"] = "👑 Admin Panel"
+
+    # Tampilkan tombol menu (Disembunyikan stylingnya lewat CSS)
     for url_key, display_name in menu_config.items():
-        is_active = (current_url_page == url_key)
-        active_class = "active" if is_active else ""
-        link_html = f'<a href="?page={url_key}" target="_self" class="menu-link {active_class}">{display_name}</a>'
-        st.markdown(link_html, unsafe_allow_html=True)
+        # Cek apakah menu ini sedang aktif
+        is_active = (st.session_state.current_page == url_key)
+        
+        # Jika diklik, ubah halaman di session state dan rerun
+        if st.button(display_name, use_container_width=True, key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
+            st.session_state.current_page = url_key
+            st.rerun()
 
     st.markdown("---")
     currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
     coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
     demo_mode = st.checkbox("Mode Demo", value=False)
 
+# Set variabel halaman aktif
+current_url_page = st.session_state.current_page
+current_page_name = menu_config.get(current_url_page, "🏠 Market Overview")
 # 6. AMBIL DATA PASAR
 market_df = None
 if demo_mode:
