@@ -1,4 +1,4 @@
-"""Modul UI Premium (Locked Sidebar & Perfect Spacing)."""
+"""Modul UI Premium (No Scroll, No Top Margin, Toggleable)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -10,42 +10,37 @@ def apply_premium_theme():
     .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
     header[data-testid="stHeader"] { display: none !important; }
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
-    
-    /* 2. KUNCI SIDEBAR (Tidak Bisa Di-hide) */
+
+    /* ==========================================
+       2. SIDEBAR: BEBAS SCROLL & MARGIN ATAS
+       ========================================== */
     [data-testid="stSidebar"] {
         background-color: #FFFFFF !important;
         border-right: 1px solid #E9E6F0 !important;
-        min-width: 280px !important;  /* Paksa lebar minimum */
-        max-width: 280px !important;  /* Paksa lebar maksimum */
-        transform: none !important;   /* Cegah animasi hide */
-        visibility: visible !important;
     }
     
-    /* Sembunyikan total tombol panah (collapse/expand) */
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
-    
-    /* Rapikan jarak sidebar */
-    [data-testid="stSidebar"] > div:first-child { 
-        padding-top: 0rem !important; 
-        margin-top: -1.5rem !important; 
-    }
-    [data-testid="stSidebarUserContent"] { 
-        padding-top: 0rem !important; 
-        padding-bottom: 2rem !important;
+    /* Tarik konten sidebar ke atas (hilangkan ruang kosong logo) */
+    [data-testid="stSidebar"] > div:first-child {
+        margin-top: -3.5rem !important; 
+        padding-top: 0rem !important;
     }
     
-    /* Sembunyikan Scrollbar */
+    /* Sembunyikan scrollbar di sidebar */
     [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
     [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     
+    /* Biarkan konten sidebar setinggi aslinya */
+    [data-testid="stSidebarUserContent"] { padding-bottom: 2rem !important; }
+
     /* Jarak antar tombol menu */
     [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
 
-    /* 3. STYLING LOGO & MENU */
+    /* ==========================================
+       3. STYLING LOGO & MENU
+       ========================================== */
     .logo-container {
         display: flex; align-items: center; gap: 8px; 
-        margin: 1.5rem 0rem 1.5rem 0rem; /* Jarak atas & bawah logo */
+        margin: 1rem 0rem 1.5rem 0rem; 
         padding-left: 10px;
     }
     
@@ -63,8 +58,10 @@ def apply_premium_theme():
     [data-testid="stSidebar"] .stButton > button[kind="primary"] {
         background-color: #F0E9FF !important; color: #6C35D9 !important; font-weight: 700 !important;
     }
-    
-    /* 4. KONTEN UTAMA */
+
+    /* ==========================================
+       4. KONTEN UTAMA
+       ========================================== */
     div[data-baseweb="input"] { background-color: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E9E6F0 !important; padding: 2px 10px !important; }
     div[data-baseweb="input"] input { color: #171827 !important; }
     
