@@ -1,4 +1,4 @@
-"""Modul UI Premium (Zero Top Margin Sidebar)."""
+"""Modul UI Premium (Perfect Spacing & No Scrollbar)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -11,23 +11,24 @@ def apply_premium_theme():
     header[data-testid="stHeader"] { display: none !important; }
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
     
-    /* 2. SIDEBAR SANGAT RAPAT & HILANGKAN RUANG ATAS */
+    /* 2. SIDEBAR: Spasi Pas & Hilangkan Scrollbar */
     [data-testid="stSidebar"] { 
         background-color: #FFFFFF !important; 
         border-right: 1px solid #E9E6F0 !important; 
+        overflow-y: hidden !important; /* Sembunyikan scrollbar vertikal */
     }
     
-    /* HANCURKAN SEMUA PADDING DI SIDEBAR */
+    /* Tarik konten ke atas, tapi jangan terlalu ekstrem */
     [data-testid="stSidebar"] > div:first-child { 
         padding-top: 0rem !important; 
-        margin-top: -3rem !important; /* Tarik paksa ke atas */
+        margin-top: -1.5rem !important; 
     }
     [data-testid="stSidebar"] .block-container { 
         padding-top: 0rem !important; 
         margin-top: 0rem !important; 
     }
     [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { 
-        gap: 0rem !important; 
+        gap: 0.1rem !important; /* Jarak antar tombol sangat tipis */
         padding-top: 0rem !important; 
     }
     
@@ -37,7 +38,8 @@ def apply_premium_theme():
     /* 3. LOGO & MENU */
     .logo-container {
         display: flex; align-items: center; gap: 8px; 
-        margin: 1rem 0rem 1rem 0rem; /* Margin kecil saja */
+        margin: 0.5rem 0rem 1rem 0rem; /* Spasi yang pas */
+        padding-left: 10px;
     }
     
     [data-testid="stSidebar"] .stButton > button {
@@ -46,7 +48,7 @@ def apply_premium_theme():
         text-align: left !important; justify-content: flex-start !important;
         padding: 6px 12px !important; border-radius: 6px !important;
         font-size: 0.9rem !important; box-shadow: none !important;
-        min-height: 36px !important;
+        min-height: 34px !important; /* Tinggi tombol sedikit lebih kecil */
     }
     [data-testid="stSidebar"] .stButton > button:hover {
         background-color: #F8F7FC !important; color: #171827 !important;
