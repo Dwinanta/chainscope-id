@@ -1,4 +1,4 @@
-"""Modul UI Premium (Clean & Stable Sidebar)."""
+"""Modul UI Premium (Fixed Hide/Show Button)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -11,7 +11,7 @@ def apply_premium_theme():
     header[data-testid="stHeader"] { display: none !important; }
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
 
-    /* 2. SIDEBAR (BERSIH TANPA SCROLLBAR) */
+    /* 2. SIDEBAR */
     [data-testid="stSidebar"] {
         background-color: #FFFFFF !important;
         border-right: 1px solid #E9E6F0 !important;
@@ -23,6 +23,27 @@ def apply_premium_theme():
 
     /* Jarak antar menu */
     [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.2rem !important; }
+
+    /* TOMBOL PANAH (HIDE/SHOW) */
+    /* Pastikan tombol panah di dalam sidebar (hide) tetap muncul */
+    [data-testid="stSidebarCollapseButton"] { 
+        display: flex !important; 
+        opacity: 1 !important;
+    }
+    
+    /* Pastikan tombol panah di luar sidebar (show) muncul saat sidebar disembunyikan */
+    [data-testid="collapsedControl"] { 
+        display: flex !important; 
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 9999 !important;
+        background-color: #FFFFFF !important;
+        border: 1px solid #E9E6F0 !important;
+        border-radius: 8px !important;
+        padding: 5px !important;
+        top: 20px !important;
+        left: 20px !important;
+    }
 
     /* 3. LOGO & MENU */
     .logo-container {
