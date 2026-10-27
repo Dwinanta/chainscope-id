@@ -84,8 +84,9 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    # Garis pemisah
     st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
+
+    # (Sisa kode tombol menu tetap sama)
 
     # TOMBOL MENU
     if "current_page" not in st.session_state:
