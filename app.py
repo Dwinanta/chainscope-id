@@ -75,9 +75,11 @@ with st.sidebar:
     ]
     if is_dev: menu_options.append("👑 Admin Panel")
     
-    # Navigasi Sidebar
-    menu = st.radio("Navigasi", menu_options, index=menu_options.index(st.session_state.current_page), label_visibility="collapsed")
-    if menu != st.session_state.current_page:
+    # Cukup panggil st.radio seperti biasa, JS akan mengubah tampilannya
+    menu = st.radio("Navigasi", menu_options, label_visibility="collapsed")
+    
+    # Update session state (opsional, untuk navigasi antar halaman)
+    if menu != st.session_state.get("current_page"):
         st.session_state.current_page = menu
 
     st.markdown("---")
