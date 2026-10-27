@@ -72,8 +72,9 @@ current_url_page = query_params.get("page", "market-overview")
 current_page_name = menu_config.get(current_url_page, "🏠 Market Overview")
 
 
+# 5. SIDEBAR
 with st.sidebar:
-    # LOGO (Spasi pas)
+    # LOGO
     st.markdown("""
         <div class='logo-container'>
             <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
@@ -83,12 +84,10 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    # Garis pemisah tipis
+    # Garis pemisah
     st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
 
-    # ... (sisa kode tombol menu tetap sama)
-
-    # Navigasi Tombol
+    # TOMBOL MENU
     if "current_page" not in st.session_state:
         st.session_state.current_page = "market-overview"
 
@@ -111,6 +110,7 @@ with st.sidebar:
             st.session_state.current_page = url_key
             st.rerun()
 
+    # PENGATURAN (Mata Uang, dll)
     st.markdown("---")
     currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
     coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
