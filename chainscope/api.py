@@ -1,17 +1,18 @@
-"""Klien API CoinGecko untuk ChainScope ID (tanpa dependensi Streamlit)."""
+"""Klien API untuk ChainScope ID (CoinGecko & Indodax)."""
 
+import time
 import pandas as pd
 import requests
-
 from . import config
 
-
 class ChainScopeAPIError(Exception):
-    """Error saat berkomunikasi dengan CoinGecko."""
+    """Error saat berkomunikasi dengan API."""
 
+# ==============================================================================
+# 1. COINGECKO API (Untuk Data Pasar & Riwayat Harga)
+# ==============================================================================
 
 def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
-    """Ambil data pasar top-N koin berdasarkan kapitalisasi pasar."""
     url = f"{config.API_BASE}/coins/markets"
     params = {
         "vs_currency": vs_currency.lower(),
@@ -35,13 +36,7 @@ def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-def fetch_price_history(
-    coin_id: str, vs_currency: str, days: int = 7
-) -> pd.DataFrame:
-    """Ambil riwayat harga + volume untuk satu koin.
-
-    Return DataFrame dengan kolom: waktu, price, volume.
-    """
+def fetch_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
     url = f"{config.API_BASE}/coins/{coin_id}/market_chart"
     params = {"vs_currency": vs_currency.lower(), "days": days}
     try:
@@ -73,28 +68,66 @@ def fetch_price_history(
 
     return df[["waktu", "price", "volume"]]
 
-def fetch_ohlc(
-    coin_id: str, vs_currency: str, days: int = 7
-) -> pd.DataFrame:
-    """Ambil data OHLC (Open, High, Low, Close) untuk candlestick.
 
-    Endpoint CoinGecko `/coins/{id}/ohlc` hanya mendukung beberapa
-    nilai `days`: 1, 7, 14, 30, 90, 180, 365.
+# ==============================================================================
+# 2. INDODAX API (Untuk Chart Candlestick)
+# ==============================================================================
+
+def fetch_indodax_klines(symbol: str, interval: str = "60", limit: int = 200) -> pd.DataFrame:
     """
-    url = f"{config.API_BASE}/coins/{coin_id}/ohlc"
-    params = {"vs_currency": vs_currency.lower(), "days": days}
+    Mengambil data candlestick dari Indodax (endpoint history_v2).
+    Symbol contoh: 'btcidr', 'ethidr'.
+    Interval (tf): '1', '5', '15', '60', '240', 'D', 'W'.
+    """
+    url = "https://indodax.com/tradingview/history_v2"
+    
+    to_time = int(time.time())
+    
+    if interval == "D": minutes = 1440
+    elif interval == "W": minutes = 10080
+    else: minutes = int(interval)
+    
+    from_time = to_time - (limit * minutes * 60)
+    
+    params = {
+        "symbol": symbol.lower().replace("_", ""), # Indodax v2 pakai 'btcidr'
+        "tf": interval,
+        "from": from_time,
+        "to": to_time
+    }
+    
     try:
         response = requests.get(url, params=params, timeout=config.REQUEST_TIMEOUT)
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.RequestException as exc:
-        raise ChainScopeAPIError(f"Gagal menghubungi CoinGecko: {exc}") from exc
+        raise ChainScopeAPIError(f"Gagal menghubungi Indodax: {exc}") from exc
     except ValueError as exc:
-        raise ChainScopeAPIError(f"Respons bukan JSON yang valid: {exc}") from exc
+        raise ChainScopeAPIError("Respons Indodax tidak valid (bukan JSON).") from exc
 
     if not isinstance(data, list) or not data:
-        raise ChainScopeAPIError(f"Data OHLC untuk {coin_id} kosong.")
+        raise ChainScopeAPIError(f"Data Klines untuk {symbol} kosong.")
 
-    df = pd.DataFrame(data, columns=["timestamp_ms", "open", "high", "low", "close"])
-    df["waktu"] = pd.to_datetime(df["timestamp_ms"], unit="ms")
-    return df[["waktu", "open", "high", "low", "close"]]
+    df = pd.DataFrame(data)
+    
+    # Mapping nama kolom (bisa huruf besar/kecil tergantung respons)
+    rename_map = {
+        "Time": "time", "time": "time",
+        "Open": "open", "open": "open",
+        "High": "high", "high": "high",
+        "Low": "low", "low": "low",
+        "Close": "close", "close": "close",
+        "Volume": "volume", "volume": "volume"
+    }
+    df = df.rename(columns=rename_map)
+    
+    required_cols = ["time", "open", "high", "low", "close", "volume"]
+    for col in required_cols:
+        if col not in df.columns:
+            raise ChainScopeAPIError(f"Kolom '{col}' tidak ditemukan dalam respons Indodax.")
+    
+    df["time"] = pd.to_datetime(df["time"], unit="s")
+    for col in ["open", "high", "low", "close", "volume"]:
+        df[col] = df[col].astype(float)
+        
+    return df[["time", "open", "high", "low", "close", "volume"]]

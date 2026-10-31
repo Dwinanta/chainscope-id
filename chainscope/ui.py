@@ -1,4 +1,4 @@
-"""Modul UI Premium (Fixed Hide/Show Button)."""
+"""Modul UI Premium (Logo ke Atas, Tombol Panah Tetap)."""
 import streamlit as st
 
 def apply_premium_theme():
@@ -8,7 +8,10 @@ def apply_premium_theme():
     
     /* 1. Reset Dasar */
     .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
-    header[data-testid="stHeader"] { display: none !important; }
+    
+    /* JANGAN SEMBUNYIKAN HEADER, biarkan tombol panah muncul */
+    header[data-testid="stHeader"] { background-color: transparent !important; background: transparent !important; }
+    
     .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
 
     /* 2. SIDEBAR */
@@ -17,39 +20,37 @@ def apply_premium_theme():
         border-right: 1px solid #E9E6F0 !important;
     }
     
-    /* Hilangkan Scrollbar */
-    [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
-    [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-
-    /* Jarak antar menu */
-    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.2rem !important; }
-
     /* TOMBOL PANAH (HIDE/SHOW) */
-    /* Pastikan tombol panah di dalam sidebar (hide) tetap muncul */
-    [data-testid="stSidebarCollapseButton"] { 
-        display: flex !important; 
-        opacity: 1 !important;
+    [data-testid="stSidebarCollapseButton"] { display: flex !important; opacity: 1 !important; }
+    [data-testid="collapsedControl"] { 
+        display: flex !important; visibility: visible !important; opacity: 1 !important; 
+        z-index: 9999 !important; background-color: #FFFFFF !important; 
+        border: 1px solid #E9E6F0 !important; border-radius: 8px !important; 
+        padding: 5px !important; top: 20px !important; left: 20px !important; 
     }
     
-    /* Pastikan tombol panah di luar sidebar (show) muncul saat sidebar disembunyikan */
-    [data-testid="collapsedControl"] { 
-        display: flex !important; 
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 9999 !important;
-        background-color: #FFFFFF !important;
-        border: 1px solid #E9E6F0 !important;
-        border-radius: 8px !important;
-        padding: 5px !important;
-        top: 20px !important;
-        left: 20px !important;
+    /* JANGAN TARIK SIDEBAR, TARIK LOGONYA SAJA */
+    [data-testid="stSidebar"] > div:first-child { 
+        padding-top: 0rem !important; 
+        margin-top: 0rem !important; 
     }
+    
+    /* Hilangkan Scrollbar Sidebar */
+    [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
+    [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+    
+    /* Jarak antar tombol menu */
+    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.2rem !important; }
 
     /* 3. LOGO & MENU */
     .logo-container {
         display: flex; align-items: center; gap: 8px; 
-        margin: 0.5rem 0rem 1rem 0rem; 
+        /* TARIK LOGO KE ATAS MELEWATI HEADER */
+        margin-top: -3.5rem !important; 
+        margin-bottom: 1.5rem !important; /* Jarak bawah ke menu */
         padding-left: 10px;
+        position: relative;
+        z-index: 10;
     }
     
     [data-testid="stSidebar"] .stButton > button {
