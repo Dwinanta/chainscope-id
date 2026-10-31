@@ -1,8 +1,7 @@
-"""Komponen Chart Chart.js (Auto-Switch Binance/Indodax - Fixed & Static)."""
+"""Komponen Chart Chart.js (Auto-Switch Binance/Indodax - Fixed)."""
 import streamlit.components.v1 as components
 
 def render_modern_chart(symbol="BTCUSDT", height=650):
-    # Base asset (BTC, ETH, dll)
     base_asset = symbol.replace("USDT", "")
     
     html_code = f"""
@@ -18,18 +17,7 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
         <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
         <style>
-            :root {{
-                --primary: #7c3aed;
-                --primary-light: #ede9fe;
-                --bg-soft: #f8f5ff;
-                --card-white: #ffffff;
-                --border-soft: #e5e7eb;
-                --text-dark: #1f2937;
-                --text-muted: #6b7280;
-                --green: #10b981;
-                --red: #ef4444;
-                --radius: 16px;
-            }}
+            :root {{ --primary: #7c3aed; --primary-light: #ede9fe; --bg-soft: #f8f5ff; --card-white: #ffffff; --border-soft: #e5e7eb; --text-dark: #1f2937; --text-muted: #6b7280; --green: #10b981; --red: #ef4444; --radius: 16px; }}
             * {{ box-sizing: border-box; margin: 0; padding: 0; }}
             body {{ font-family: 'Inter', sans-serif; background-color: var(--bg-soft); color: var(--text-dark); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; padding: 10px; }}
             .chart-card {{ background-color: var(--card-white); border: 1px solid var(--primary-light); border-radius: var(--radius); width: 100%; height: 100%; padding: 20px; display: flex; flex-direction: column; gap: 15px; position: relative; }}
@@ -45,7 +33,6 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
             .live-dot {{ width: 8px; height: 8px; background-color: var(--green); border-radius: 50%; animation: blink 1.5s infinite; }}
             @keyframes blink {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.3; }} }}
             .source-badge {{ font-size: 0.7rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; background: #fef3c7; color: #d97706; margin-left: 10px; display: none; }}
-            
             .controls {{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }}
             .btn-group {{ display: flex; background-color: var(--primary-light); padding: 4px; border-radius: 10px; gap: 2px; }}
             .btn-group button {{ background: transparent; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: var(--primary); cursor: pointer; transition: all 0.2s; font-family: inherit; }}
@@ -53,10 +40,8 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
             .btn-group button.active {{ background-color: var(--card-white); color: var(--primary); font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
             .reset-btn {{ background: transparent; border: 1px solid var(--border-soft); border-radius: 8px; padding: 6px; cursor: pointer; color: var(--text-muted); }}
             .reset-btn:hover {{ color: var(--primary); border-color: var(--primary); background-color: var(--primary-light); }}
-            
             .indicators {{ display: flex; gap: 15px; font-size: 0.85rem; color: var(--text-muted); margin-top: -5px; }}
             .indicators label {{ display: flex; align-items: center; gap: 5px; cursor: pointer; }}
-
             .chart-wrapper {{ position: relative; flex-grow: 1; width: 100%; min-height: 0; }}
             .error-msg {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--red); background: #fef2f2; padding: 20px; border-radius: 12px; border: 1px solid #fecaca; z-index: 10; }}
         </style>
@@ -64,7 +49,6 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
     <body>
         <div class="chart-card">
             <div id="errorMsg" class="error-msg"><b>Gagal memuat data.</b><br>Pastikan koneksi internet stabil.</div>
-            
             <div class="header">
                 <div class="asset-info">
                     <div class="asset-title">
@@ -79,7 +63,6 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 </div>
                 <div class="live-indicator"><div class="live-dot"></div> Live</div>
             </div>
-
             <div class="controls">
                 <div class="btn-group" id="typeGroup">
                     <button data-type="area" class="active">Area</button>
@@ -94,48 +77,27 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                     <button data-tf="4h" data-idx="240">4h</button>
                     <button data-tf="1d" data-idx="D">1d</button>
                 </div>
-                <button class="reset-btn" id="resetZoom" title="Reset Zoom">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                </button>
+                <button class="reset-btn" id="resetZoom" title="Reset Zoom"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button>
             </div>
-
             <div class="indicators">
                 <label><input type="checkbox" id="chkMA20"> MA 20</label>
                 <label><input type="checkbox" id="chkMA50"> MA 50</label>
                 <label><input type="checkbox" id="chkRSI"> RSI</label>
             </div>
-
             <div class="chart-wrapper"><canvas id="chartCanvas"></canvas></div>
         </div>
-
         <script>
-            // State Utama
-            const state = {{ 
-                symbol: '{base_asset}', 
-                type: 'area', 
-                timeframe: '1h',
-                indodaxTf: '60',
-                source: 'binance', 
-                chartInstance: null, 
-                rawData: [] 
-            }};
-            
+            const state = {{ symbol: '{base_asset}', type: 'area', timeframe: '1h', indodaxTf: '60', source: 'binance', chartInstance: null, rawData: [] }};
             const priceEl = document.getElementById('currentPrice');
             const changeEl = document.getElementById('priceChange');
             const canvas = document.getElementById('chartCanvas');
             const errorMsg = document.getElementById('errorMsg');
             const pairLabel = document.getElementById('pairLabel');
             const sourceBadge = document.getElementById('sourceBadge');
-            
             const COLORS = {{ purple: '#7c3aed', purpleFill: 'rgba(124, 58, 237, 0.15)', green: '#10b981', red: '#ef4444', grid: '#f3f4f6', text: '#6b7280', ma20: '#2962FF', ma50: '#FFB300', rsi: '#171827' }};
 
-            // Format Angka
-            function formatMoney(num) {{
-                if (state.source === 'binance') return '$' + num.toLocaleString('en-US', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
-                else return 'Rp' + num.toLocaleString('id-ID', {{ minimumFractionDigits: 0, maximumFractionDigits: 0 }});
-            }}
+            function formatMoney(num) {{ return state.source === 'binance' ? '$' + num.toLocaleString('en-US', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}) : 'Rp' + num.toLocaleString('id-ID', {{ minimumFractionDigits: 0, maximumFractionDigits: 0 }}); }}
 
-            // Indikator
             function calcSMA(data, period) {{
                 let sma = [];
                 for (let i = 0; i < data.length; i++) {{
@@ -160,40 +122,31 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 return [null, ...rsi];
             }}
 
-            // Fetch Data (Auto Switch)
             async function fetchKlines() {{
                 errorMsg.style.display = 'none';
-                
                 try {{
                     if (state.source === 'binance') {{
                         const url = `https://api.binance.com/api/v3/klines?symbol=${{state.symbol}}USDT&interval=${{state.timeframe}}&limit=200`;
                         const response = await fetch(url);
                         if (!response.ok) throw new Error("Binance Blocked");
-                        
                         const data = await response.json();
                         state.rawData = data.map(d => ({{ x: d[0], o: parseFloat(d[1]), h: parseFloat(d[2]), l: parseFloat(d[3]), c: parseFloat(d[4]) }}));
-                        
                         sourceBadge.style.display = 'none';
                         pairLabel.textContent = `${{state.symbol}} / USDT`;
                         document.getElementById('assetName').textContent = state.symbol;
-                        
                     }} else {{
                         throw new Error("Force Indodax");
                     }}
                 }} catch (error) {{
-                    console.warn("Binance gagal, beralih ke Indodax...");
                     state.source = 'indodax';
                     sourceBadge.style.display = 'inline-block';
                     pairLabel.textContent = `${{state.symbol}} / IDR`;
-                    
                     try {{
                         const tfMap = {{ '1m': '1', '5m': '5', '15m': '15', '1h': '60', '4h': '240', '1d': 'D' }};
                         state.indodaxTf = tfMap[state.timeframe] || '60';
-                        
                         const url = `https://indodax.com/tradingview/history_v2?symbol=${{state.symbol.toLowerCase()}}idr&tf=${{state.indodaxTf}}&from=${{Math.floor(Date.now() / 1000) - 86400 * 7}}&to=${{Math.floor(Date.now() / 1000)}}`;
                         const response = await fetch(url);
                         if (!response.ok) throw new Error("Indodax Failed");
-                        
                         const data = await response.json();
                         state.rawData = data.map(d => ({{ x: d.Time * 1000, o: parseFloat(d.Open), h: parseFloat(d.High), l: parseFloat(d.Low), c: parseFloat(d.Close) }}));
                     }} catch (err) {{
@@ -202,10 +155,7 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                     }}
                 }}
 
-                if (state.rawData.length === 0) {{
-                    errorMsg.style.display = 'block';
-                    return;
-                }}
+                if (state.rawData.length === 0) {{ errorMsg.style.display = 'block'; return; }}
 
                 const labels = state.rawData.map(d => d.x);
                 const closePrices = state.rawData.map(d => d.c);
@@ -228,7 +178,6 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 }}
             }}
 
-            // Render Chart (Statis / Tanpa Animasi)
             function renderChart(labels, dataPoints, ohlcData) {{
                 if (state.chartInstance) state.chartInstance.destroy();
                 const ctx = canvas.getContext('2d');
@@ -252,15 +201,22 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 }};
                 
                 if (document.getElementById('chkRSI').checked) {{
-                    scales.y_rsi = {{ position: 'left', min: 0, max: 100, grid: {{ display: false }}, ticks: {{ color: COLORS.text }}, title: {{ display: true, text: 'RSI', color: COLORS.text }} }};
+                    scales.y_rsi = {{ 
+                        position: 'left', 
+                        min: 0, max: 100, 
+                        grid: {{ display: false }}, 
+                        ticks: {{ color: COLORS.text, stepSize: 20 }}, 
+                        title: {{ display: true, text: 'RSI', color: COLORS.text }} 
+                    }};
                 }}
 
                 state.chartInstance = new Chart(ctx, {{
                     type: state.type === 'candlestick' ? 'candlestick' : 'line',
                     data: {{ labels: labels, datasets: datasets }},
                     options: {{
-                        responsive: true, maintainAspectRatio: false, interaction: {{ mode: 'index', intersect: false }},
-                        animation: false, // <--- Mematikan animasi (Chart diam/statis)
+                        responsive: true, maintainAspectRatio: false, 
+                        animation: false, // STATIS
+                        interaction: {{ mode: 'index', intersect: false }},
                         plugins: {{
                             legend: {{ display: true, position: 'top', align: 'end', labels: {{ boxWidth: 10, usePointStyle: true }} }},
                             tooltip: {{ callbacks: {{ label: function(c) {{ 
@@ -270,12 +226,7 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                             }} }} }},
                             zoom: {{
                                 pan: {{ enabled: true, mode: 'x' }},
-                                zoom: {{
-                                    wheel: {{ enabled: true }},
-                                    pinch: {{ enabled: true }},
-                                    mode: 'x',
-                                    limits: {{ x: {{ min: 'original', max: 'original' }} }}
-                                }}
+                                zoom: {{ wheel: {{ enabled: true }}, pinch: {{ enabled: true }}, mode: 'x', limits: {{ x: {{ min: 'original', max: 'original' }} }} }}
                             }}
                         }},
                         scales: scales
