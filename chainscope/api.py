@@ -164,3 +164,28 @@ def fetch_exchange_prices() -> dict:
         print(f"Error Upbit: {e}")
 
     return result
+
+def fetch_indodax_all_tickers() -> pd.DataFrame:
+    """Mengambil semua harga koin yang ada di Indodax (IDR)."""
+    try:
+        res = requests.get("https://indodax.com/api/summaries", timeout=10)
+        res.raise_for_status()
+        data = res.json()
+        tickers = data.get("tickers", {})
+        
+        rows = []
+        for pair, info in tickers.items():
+            if pair.endswith("_idr"):
+                symbol = pair.replace("_idr", "").upper()
+                rows.append({
+                    "Symbol": symbol,
+                    "Name": symbol, # Indodax tidak kirim nama panjang, pakai simbol saja
+                    "Price": float(info.get("last", 0)),
+                    "High": float(info.get("high", 0)),
+                    "Low": float(info.get("low", 0)),
+                    "Volume": float(info.get("vol_idr", 0))
+                })
+        return pd.DataFrame(rows).sort_values("Volume", ascending=False)
+    except Exception as e:
+        print(f"Error Indodax All Tickers: {e}")
+        return pd.DataFrame()

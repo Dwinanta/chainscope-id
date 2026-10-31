@@ -210,59 +210,59 @@ if current_page == "market-overview":
 elif current_page == "market-data":
     st.markdown("<h1>Market Data</h1>", unsafe_allow_html=True)
     
-    # --- FITUR BARU: PERBANDINGAN HARGA EXCHANGE LOKAL ---
-    with st.container(border=True):
-        st.markdown("#### 📊 Perbandingan Harga Exchange Lokal (IDR)")
-        exchange_data = api.fetch_exchange_prices()
-        
-        col_indodax, col_upbit = st.columns(2)
-        with col_indodax:
-            st.markdown("**Indodax**")
-            btc_indodax = exchange_data["Indodax"]["BTC"]
-            eth_indodax = exchange_data["Indodax"]["ETH"]
-            st.metric("BTC / IDR", f"Rp {btc_indodax:,.0f}" if btc_indodax else "N/A")
-            st.metric("ETH / IDR", f"Rp {eth_indodax:,.0f}" if eth_indodax else "N/A")
-            
-        with col_upbit:
-            st.markdown("**Upbit Indonesia**")
-            btc_upbit = exchange_data["Upbit Indonesia"]["BTC"]
-            eth_upbit = exchange_data["Upbit Indonesia"]["ETH"]
-            st.metric("BTC / IDR", f"Rp {btc_upbit:,.0f}" if btc_upbit else "N/A")
-            st.metric("ETH / IDR", f"Rp {eth_upbit:,.0f}" if eth_upbit else "N/A")
-            
-        # Hitung selisih jika keduanya ada
-        if btc_indodax and btc_upbit:
-            diff_pct = ((btc_upbit - btc_indodax) / btc_indodax) * 100
-            st.caption(f"Selisih Harga BTC: {diff_pct:+.2f}% (Upbit vs Indodax)")
-
+    # Pilihan Sumber Data
+    source_choice = st.radio("Pilih Sumber Data:", ["Global (Top 250)", "Indodax (Semua Koin IDR)"], horizontal=True)
+    
     st.markdown("<br>", unsafe_allow_html=True)
+    search_query = st.text_input("🔍 Cari koin (contoh: BTC, SOL, DOGE)...", placeholder="Ketik nama atau simbol koin")
     
-    # --- TABEL DATA PASAR (Kode Lama) ---
-    st.markdown("<p>Klik pada baris koin untuk melihat analisis teknikalnya.</p>", unsafe_allow_html=True)
-    search_query = st.text_input("🔍 Cari koin...", placeholder="Bitcoin, ETH, Solana")
-    
-    with st.container(border=True):
-        table_source = search.filter_coins(market_df, search_query)
-        if table_source.empty: table_source = market_df
-        
-        display_df = pd.DataFrame({
-            "#": range(1, len(table_source) + 1),
-            "Coin": table_source["name"],
-            "Ticker": table_source["symbol_upper"],
-            "Price": table_source["current_price"].map(lambda v: formatting.format_money(v, currency)),
-            "24h %": table_source["price_change_percentage_24h"].map(lambda v: f"{v:.2f}%"),
-            "24h Volume": table_source["total_volume"].map(lambda v: formatting.format_money(v, currency)),
-            "Market Cap": table_source["market_cap"].map(lambda v: formatting.format_money(v, currency)),
-        })
-        
-        event = st.dataframe(display_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
-        
-        if len(event.selection.rows) > 0:
-            selected_idx = event.selection.rows[0]
-            selected_coin_id = table_source.iloc[selected_idx]["id"]
-            st.session_state.selected_technical_coin = selected_coin_id
-            st.session_state.current_page = "technical-analysis"
-            st.rerun()
+    if source_choice == "Global (Top 250)":
+        # --- LOGIKA COINGECKO (Kode Lama) ---
+        with st.container(border=True):
+            table_source = search.filter_coins(market_df, search_query)
+            if table_source.empty: table_source = market_df
+            
+            display_df = pd.DataFrame({
+                "#": range(1, len(table_source) + 1),
+                "Coin": table_source["name"],
+                "Ticker": table_source["symbol_upper"],
+                "Price": table_source["current_price"].map(lambda v: formatting.format_money(v, currency)),
+                "24h %": table_source["price_change_percentage_24h"].map(lambda v: f"{v:.2f}%"),
+                "24h Volume": table_source["total_volume"].map(lambda v: formatting.format_money(v, currency)),
+                "Market Cap": table_source["market_cap"].map(lambda v: formatting.format_money(v, currency)),
+            })
+            
+            event = st.dataframe(display_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
+            
+            if len(event.selection.rows) > 0:
+                selected_idx = event.selection.rows[0]
+                selected_coin_id = table_source.iloc[selected_idx]["id"]
+                st.session_state.selected_technical_coin = selected_coin_id
+                st.session_state.current_page = "technical-analysis"
+                st.rerun()
+
+    else:
+        # --- LOGIKA INDODAX (Semua Koin) ---
+        with st.spinner("Mengambil data dari Indodax..."):
+            indodax_df = api.fetch_indodax_all_tickers()
+            
+        if indodax_df.empty:
+            st.error("Gagal mengambil data dari Indodax.")
+        else:
+            # Filter berdasarkan pencarian
+            if search_query:
+                indodax_df = indodax_df[indodax_df["Symbol"].str.contains(search_query.upper(), case=False)]
+                
+            with st.container(border=True):
+                # Format Tabel
+                display_df = pd.DataFrame({
+                    "Simbol": indodax_df["Symbol"],
+                    "Harga (IDR)": indodax_df["Price"].map(lambda v: f"Rp {v:,.0f}"),
+                    "Tertinggi 24j": indodax_df["High"].map(lambda v: f"Rp {v:,.0f}"),
+                    "Terendah 24j": indodax_df["Low"].map(lambda v: f"Rp {v:,.0f}"),
+                    "Volume (IDR)": indodax_df["Volume"].map(lambda v: f"Rp {v:,.0f}"),
+                })
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 elif current_page == "technical-analysis":
     st.markdown("<h1>Technical Analysis</h1>", unsafe_allow_html=True)
