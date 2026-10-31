@@ -1,4 +1,4 @@
-"""Komponen Chart Chart.js (Auto-Switch Binance/Indodax)."""
+"""Komponen Chart Chart.js (Auto-Switch Binance/Indodax - Fixed & Static)."""
 import streamlit.components.v1 as components
 
 def render_modern_chart(symbol="BTCUSDT", height=650):
@@ -115,7 +115,7 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 type: 'area', 
                 timeframe: '1h',
                 indodaxTf: '60',
-                source: 'binance', // 'binance' atau 'indodax'
+                source: 'binance', 
                 chartInstance: null, 
                 rawData: [] 
             }};
@@ -160,14 +160,11 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 return [null, ...rsi];
             }}
 
-            // ==========================================
-            // LOGIKA AUTO-SWITCH (BINANCE -> INDODAX)
-            // ==========================================
+            // Fetch Data (Auto Switch)
             async function fetchKlines() {{
                 errorMsg.style.display = 'none';
                 
                 try {{
-                    // 1. Coba Binance
                     if (state.source === 'binance') {{
                         const url = `https://api.binance.com/api/v3/klines?symbol=${{state.symbol}}USDT&interval=${{state.timeframe}}&limit=200`;
                         const response = await fetch(url);
@@ -184,14 +181,12 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                         throw new Error("Force Indodax");
                     }}
                 }} catch (error) {{
-                    // 2. Jika Binance Gagal, Switch ke Indodax
                     console.warn("Binance gagal, beralih ke Indodax...");
                     state.source = 'indodax';
                     sourceBadge.style.display = 'inline-block';
                     pairLabel.textContent = `${{state.symbol}} / IDR`;
                     
                     try {{
-                        // Ambil TF Indodax yang sesuai
                         const tfMap = {{ '1m': '1', '5m': '5', '15m': '15', '1h': '60', '4h': '240', '1d': 'D' }};
                         state.indodaxTf = tfMap[state.timeframe] || '60';
                         
@@ -212,12 +207,10 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                     return;
                 }}
 
-                // Render
                 const labels = state.rawData.map(d => d.x);
                 const closePrices = state.rawData.map(d => d.c);
                 renderChart(labels, closePrices, state.rawData);
                 
-                // Hitung 24h Change
                 const firstPrice = state.rawData[0].c;
                 const lastPrice = state.rawData[state.rawData.length - 1].c;
                 const changePercent = ((lastPrice - firstPrice) / firstPrice) * 100;
@@ -235,6 +228,7 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                 }}
             }}
 
+            // Render Chart (Statis / Tanpa Animasi)
             function renderChart(labels, dataPoints, ohlcData) {{
                 if (state.chartInstance) state.chartInstance.destroy();
                 const ctx = canvas.getContext('2d');
@@ -266,6 +260,7 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                     data: {{ labels: labels, datasets: datasets }},
                     options: {{
                         responsive: true, maintainAspectRatio: false, interaction: {{ mode: 'index', intersect: false }},
+                        animation: false, // <--- Mematikan animasi (Chart diam/statis)
                         plugins: {{
                             legend: {{ display: true, position: 'top', align: 'end', labels: {{ boxWidth: 10, usePointStyle: true }} }},
                             tooltip: {{ callbacks: {{ label: function(c) {{ 
@@ -273,7 +268,15 @@ def render_modern_chart(symbol="BTCUSDT", height=650):
                                 let val = c.raw.c || c.raw; 
                                 return formatMoney(parseFloat(val)); 
                             }} }} }},
-                            zoom: {{ pan: {{ enabled: true, mode: 'x' }}, zoom: {{ wheel: {{ enabled: true }}, pinch: {{ enabled: true }}, mode: 'x' }} }}
+                            zoom: {{
+                                pan: {{ enabled: true, mode: 'x' }},
+                                zoom: {{
+                                    wheel: {{ enabled: true }},
+                                    pinch: {{ enabled: true }},
+                                    mode: 'x',
+                                    limits: {{ x: {{ min: 'original', max: 'original' }} }}
+                                }}
+                            }}
                         }},
                         scales: scales
                     }}

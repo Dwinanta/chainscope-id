@@ -209,7 +209,36 @@ if current_page == "market-overview":
 
 elif current_page == "market-data":
     st.markdown("<h1>Market Data</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Klik pada baris koin untuk melihat analisis teknikalnya.</p><br>", unsafe_allow_html=True)
+    
+    # --- FITUR BARU: PERBANDINGAN HARGA EXCHANGE LOKAL ---
+    with st.container(border=True):
+        st.markdown("#### 📊 Perbandingan Harga Exchange Lokal (IDR)")
+        exchange_data = api.fetch_exchange_prices()
+        
+        col_indodax, col_upbit = st.columns(2)
+        with col_indodax:
+            st.markdown("**Indodax**")
+            btc_indodax = exchange_data["Indodax"]["BTC"]
+            eth_indodax = exchange_data["Indodax"]["ETH"]
+            st.metric("BTC / IDR", f"Rp {btc_indodax:,.0f}" if btc_indodax else "N/A")
+            st.metric("ETH / IDR", f"Rp {eth_indodax:,.0f}" if eth_indodax else "N/A")
+            
+        with col_upbit:
+            st.markdown("**Upbit Indonesia**")
+            btc_upbit = exchange_data["Upbit Indonesia"]["BTC"]
+            eth_upbit = exchange_data["Upbit Indonesia"]["ETH"]
+            st.metric("BTC / IDR", f"Rp {btc_upbit:,.0f}" if btc_upbit else "N/A")
+            st.metric("ETH / IDR", f"Rp {eth_upbit:,.0f}" if eth_upbit else "N/A")
+            
+        # Hitung selisih jika keduanya ada
+        if btc_indodax and btc_upbit:
+            diff_pct = ((btc_upbit - btc_indodax) / btc_indodax) * 100
+            st.caption(f"Selisih Harga BTC: {diff_pct:+.2f}% (Upbit vs Indodax)")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # --- TABEL DATA PASAR (Kode Lama) ---
+    st.markdown("<p>Klik pada baris koin untuk melihat analisis teknikalnya.</p>", unsafe_allow_html=True)
     search_query = st.text_input("🔍 Cari koin...", placeholder="Bitcoin, ETH, Solana")
     
     with st.container(border=True):
@@ -248,7 +277,7 @@ elif current_page == "technical-analysis":
     
     from chainscope.chart_component import render_modern_chart
     render_modern_chart(symbol=symbol_upper, height=680)
-    
+
 elif current_page == "trading-journal":
     st.markdown("<h1>Trading Journal</h1>", unsafe_allow_html=True)
     
