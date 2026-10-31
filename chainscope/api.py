@@ -131,3 +131,36 @@ def fetch_indodax_klines(symbol: str, interval: str = "60", limit: int = 200) ->
         df[col] = df[col].astype(float)
         
     return df[["time", "open", "high", "low", "close", "volume"]]
+
+def fetch_exchange_prices() -> dict:
+    """Mengambil harga BTC dan ETH dari Indodax dan Upbit Indonesia."""
+    result = {
+        "Indodax": {"BTC": None, "ETH": None},
+        "Upbit Indonesia": {"BTC": None, "ETH": None},
+    }
+    
+    # --- Indodax ---
+    try:
+        res = requests.get("https://indodax.com/api/summaries", timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            tickers = data.get("tickers", {})
+            if "btc_idr" in tickers: result["Indodax"]["BTC"] = float(tickers["btc_idr"]["last"])
+            if "eth_idr" in tickers: result["Indodax"]["ETH"] = float(tickers["eth_idr"]["last"])
+    except Exception as e:
+        print(f"Error Indodax: {e}")
+
+    # --- Upbit Indonesia ---
+    try:
+        res = requests.get("https://id-api.upbit.com/v1/ticker?markets=IDR-BTC,IDR-ETH", timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            for item in data:
+                market = item.get("market")
+                trade_price = float(item.get("trade_price", 0))
+                if market == "IDR-BTC": result["Upbit Indonesia"]["BTC"] = trade_price
+                if market == "IDR-ETH": result["Upbit Indonesia"]["ETH"] = trade_price
+    except Exception as e:
+        print(f"Error Upbit: {e}")
+
+    return result
