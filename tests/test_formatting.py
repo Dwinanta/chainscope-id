@@ -11,6 +11,14 @@ def test_format_money_usd_small():
 def test_format_money_usd_billion():
     assert formatting.format_money(1_500_000_000, "USD") == "$1.50 B"
 
+def test_format_money_eur():
+    assert formatting.format_money(1234.5, "EUR") == "€1,234.50"
+
+def test_format_money_gbp():
+    assert formatting.format_money(1234.5, "GBP") == "£1,234.50"
+
+def test_format_money_cad():
+    assert formatting.format_money(1234.5, "CAD") == "C$1,234.50"
 
 def test_format_money_idr_billion():
     assert formatting.format_money(1_500_000_000, "IDR") == "Rp1,50 M"

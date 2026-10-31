@@ -2,6 +2,8 @@
 
 import pandas as pd
 
+from chainscope.config import CURRENCY_OPTIONS
+
 
 def format_money(value, currency: str) -> str:
     """Format singkat angka (mis. Rp1,65 T / $83.38 K / Rp12.345)."""
@@ -22,19 +24,19 @@ def format_money(value, currency: str) -> str:
             return f"Rp{v:,.0f}".replace(",", ".")
         return f"Rp{v:.6f}".replace(".", ",")
 
-    # USD
+    prefix = CURRENCY_OPTIONS.get(cur, {}).get("prefix", f"{cur} ")
     abs_v = abs(v)
     if abs_v >= 1_000_000_000_000:
-        return f"${v / 1_000_000_000_000:.2f} T"
+        return f"{prefix}{v / 1_000_000_000_000:.2f} T"
     if abs_v >= 1_000_000_000:
-        return f"${v / 1_000_000_000:.2f} B"
+        return f"{prefix}{v / 1_000_000_000:.2f} B"
     if abs_v >= 1_000_000:
-        return f"${v / 1_000_000:.2f} M"
+        return f"{prefix}{v / 1_000_000:.2f} M"
     if abs_v >= 1:
-        return f"${v:,.2f}"
+        return f"{prefix}{v:,.2f}"
     if abs_v >= 0.01:
-        return f"${v:.4f}"
-    return f"${v:.8f}"
+        return f"{prefix}{v:.4f}"
+    return f"{prefix}{v:.8f}"
 
 
 def format_percent(value) -> str:

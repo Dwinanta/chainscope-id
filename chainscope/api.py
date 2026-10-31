@@ -1,9 +1,13 @@
 """Klien API untuk ChainScope ID (CoinGecko & Indodax)."""
 
+import logging
 import time
 import pandas as pd
 import requests
 from . import config
+
+logger = logging.getLogger(__name__)
+
 
 class ChainScopeAPIError(Exception):
     """Error saat berkomunikasi dengan API."""
@@ -34,6 +38,77 @@ def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
     if not isinstance(data, list) or not data:
         raise ChainScopeAPIError("Respons API kosong atau tidak sesuai format.")
     return pd.DataFrame(data)
+
+
+def fetch_all_coins() -> list[dict[str, str]]:
+    """Mengambil daftar lengkap koin CoinGecko (id, symbol, dan name)."""
+    url = f"{config.API_BASE}/coins/list"
+    try:
+        response = requests.get(url, timeout=config.REQUEST_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as exc:
+        raise ChainScopeAPIError(f"Gagal menghubungi CoinGecko: {exc}") from exc
+    except ValueError as exc:
+        raise ChainScopeAPIError(f"Respons daftar koin bukan JSON yang valid: {exc}") from exc
+
+    if not isinstance(data, list):
+        raise ChainScopeAPIError("Respons daftar koin CoinGecko tidak sesuai format.")
+
+    coins = []
+    for coin in data:
+        if not isinstance(coin, dict):
+            continue
+        coin_id, symbol, name = coin.get("id"), coin.get("symbol"), coin.get("name")
+        if all(isinstance(value, str) and value.strip() for value in (coin_id, symbol, name)):
+            coins.append({
+                "id": coin_id.strip(),
+                "symbol": symbol.strip().lower(),
+                "name": name.strip(),
+            })
+
+    if not coins:
+        raise ChainScopeAPIError("CoinGecko tidak mengembalikan daftar koin yang valid.")
+    return coins
+
+
+def merge_market_and_coin_list(
+    market_data: pd.DataFrame,
+    all_coins: pd.DataFrame,
+) -> pd.DataFrame:
+    """Gabungkan data pasar dengan katalog lengkap, sambil menjaga urutan pasar."""
+    required = {"id", "symbol", "name"}
+    if not required.issubset(market_data.columns) or not required.issubset(all_coins.columns):
+        raise ValueError("Data pasar dan katalog wajib memiliki kolom id, symbol, dan name.")
+
+    market = market_data.copy()
+    catalog = all_coins.copy()
+    market["id"] = market["id"].astype(str)
+    catalog["id"] = catalog["id"].astype(str)
+    market = market.drop_duplicates("id", keep="first")
+    market["_market_rank"] = range(len(market))
+
+    coins = pd.concat(
+        [market[["id", "symbol", "name"]], catalog[["id", "symbol", "name"]]],
+        ignore_index=True,
+    ).drop_duplicates("id", keep="first")
+    market_columns = [
+        column for column in market.columns if column not in {"symbol", "name"}
+    ]
+    merged = coins.merge(
+        market[market_columns],
+        on="id",
+        how="left",
+        sort=False,
+    )
+    merged = merged.sort_values(
+        "_market_rank", na_position="last", kind="stable"
+    ).drop(columns="_market_rank")
+    if "current_price" in merged:
+        merged["current_price"] = merged["current_price"].fillna(0)
+    if "image" in merged:
+        merged["image"] = merged["image"].fillna("")
+    return merged
 
 
 def fetch_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
@@ -138,54 +213,86 @@ def fetch_exchange_prices() -> dict:
         "Indodax": {"BTC": None, "ETH": None},
         "Upbit Indonesia": {"BTC": None, "ETH": None},
     }
-    
-    # --- Indodax ---
-    try:
-        res = requests.get("https://indodax.com/api/summaries", timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            tickers = data.get("tickers", {})
-            if "btc_idr" in tickers: result["Indodax"]["BTC"] = float(tickers["btc_idr"]["last"])
-            if "eth_idr" in tickers: result["Indodax"]["ETH"] = float(tickers["eth_idr"]["last"])
-    except Exception as e:
-        print(f"Error Indodax: {e}")
 
-    # --- Upbit Indonesia ---
     try:
-        res = requests.get("https://id-api.upbit.com/v1/ticker?markets=IDR-BTC,IDR-ETH", timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            for item in data:
-                market = item.get("market")
-                trade_price = float(item.get("trade_price", 0))
-                if market == "IDR-BTC": result["Upbit Indonesia"]["BTC"] = trade_price
-                if market == "IDR-ETH": result["Upbit Indonesia"]["ETH"] = trade_price
-    except Exception as e:
-        print(f"Error Upbit: {e}")
+        response = requests.get(
+            "https://indodax.com/api/summaries",
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict) or not isinstance(data.get("tickers"), dict):
+            raise ValueError("Respons Indodax tidak sesuai format.")
+        tickers = data["tickers"]
+        for symbol in ("BTC", "ETH"):
+            ticker = tickers.get(f"{symbol.lower()}_idr")
+            if ticker and ticker.get("last") is not None:
+                result["Indodax"][symbol] = float(ticker["last"])
+    except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
+        logger.warning("Gagal mengambil harga dari Indodax: %s", exc)
+
+    try:
+        response = requests.get(
+            "https://id-api.upbit.com/v1/ticker",
+            params={"markets": "IDR-BTC,IDR-ETH"},
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        tickers = response.json()
+        if not isinstance(tickers, list):
+            raise ValueError("Respons Upbit tidak sesuai format.")
+        for ticker in tickers:
+            if not isinstance(ticker, dict):
+                raise ValueError("Ticker Upbit tidak sesuai format.")
+            market = ticker.get("market")
+            if market in ("IDR-BTC", "IDR-ETH"):
+                result["Upbit Indonesia"][market[4:]] = float(ticker["trade_price"])
+    except (requests.exceptions.RequestException, ValueError, TypeError, KeyError) as exc:
+        logger.warning("Gagal mengambil harga dari Upbit Indonesia: %s", exc)
+
+    if all(price is None for exchange in result.values() for price in exchange.values()):
+        raise ChainScopeAPIError("Harga BTC/ETH tidak tersedia dari Indodax maupun Upbit.")
 
     return result
+
 
 def fetch_indodax_all_tickers() -> pd.DataFrame:
     """Mengambil semua harga koin yang ada di Indodax (IDR)."""
     try:
-        res = requests.get("https://indodax.com/api/summaries", timeout=10)
-        res.raise_for_status()
-        data = res.json()
-        tickers = data.get("tickers", {})
-        
-        rows = []
-        for pair, info in tickers.items():
-            if pair.endswith("_idr"):
-                symbol = pair.replace("_idr", "").upper()
+        response = requests.get(
+            "https://indodax.com/api/summaries",
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as exc:
+        raise ChainScopeAPIError(f"Gagal menghubungi Indodax: {exc}") from exc
+    except ValueError as exc:
+        raise ChainScopeAPIError("Respons Indodax bukan JSON yang valid.") from exc
+
+    tickers = data.get("tickers") if isinstance(data, dict) else None
+    if not isinstance(tickers, dict) or not tickers:
+        raise ChainScopeAPIError("Respons Indodax tidak berisi data ticker.")
+
+    rows = []
+    for pair, info in tickers.items():
+        if pair.endswith("_idr") and isinstance(info, dict):
+            try:
                 rows.append({
-                    "Symbol": symbol,
-                    "Name": symbol, # Indodax tidak kirim nama panjang, pakai simbol saja
-                    "Price": float(info.get("last", 0)),
-                    "High": float(info.get("high", 0)),
-                    "Low": float(info.get("low", 0)),
-                    "Volume": float(info.get("vol_idr", 0))
+                    "Symbol": pair[:-4].upper(),
+                    "Name": pair[:-4].upper(),
+                    "Price": float(info["last"]),
+                    "High": float(info["high"]),
+                    "Low": float(info["low"]),
+                    "Volume": float(info["vol_idr"]),
                 })
-        return pd.DataFrame(rows).sort_values("Volume", ascending=False)
-    except Exception as e:
-        print(f"Error Indodax All Tickers: {e}")
-        return pd.DataFrame()
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.warning("Ticker Indodax %s dilewati: %s", pair, exc)
+
+    if not rows:
+        raise ChainScopeAPIError("Indodax tidak mengembalikan ticker IDR yang valid.")
+
+    return pd.DataFrame(
+        rows,
+        columns=["Symbol", "Name", "Price", "High", "Low", "Volume"],
+    ).sort_values("Volume", ascending=False, ignore_index=True)

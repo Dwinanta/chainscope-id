@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+from . import config
 
 PORTFOLIO_FILE = Path(__file__).resolve().parent.parent / "portfolio.json"
 
@@ -120,8 +121,8 @@ def compute_portfolio(
     holdings : list dict dengan 'coin_id', 'amount', 'buy_price_usd'
     market_df : DataFrame harga saat ini (kolom 'current_price' dalam
                 mata uang `currency`)
-    usd_idr_rate : kurs untuk konversi harga beli USD -> display currency
-    currency : 'USD' atau 'IDR'
+    usd_idr_rate : unit mata uang tampilan untuk setiap USD
+    currency : mata uang tampilan yang didukung
 
     Return
     ------
@@ -135,10 +136,10 @@ def compute_portfolio(
             "found",
         ])
 
-    if currency.upper() not in ("USD", "IDR"):
+    cur = currency.upper()
+    if cur not in config.CURRENCY_OPTIONS:
         raise ValueError(f"Mata uang tidak dikenal: {currency}")
 
-    cur = currency.upper()
     rows = []
 
     for h in holdings:
@@ -146,8 +147,7 @@ def compute_portfolio(
         amt = float(h.get("amount", 0))
         buy_usd = float(h.get("buy_price_usd", 0))
 
-        # Konversi harga beli dari USD ke display currency
-        buy_display = buy_usd * usd_idr_rate if cur == "IDR" else buy_usd
+        buy_display = buy_usd if cur == "USD" else buy_usd * usd_idr_rate
 
         match = (
             market_df[market_df["id"] == cid]

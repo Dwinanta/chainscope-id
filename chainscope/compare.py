@@ -53,3 +53,37 @@ def normalize_to_100(df: pd.DataFrame, exclude_cols=("waktu",)) -> pd.DataFrame:
             continue
         out[col] = series / base * 100.0
     return out
+
+
+def build_relative_ratio(
+    history_a: pd.DataFrame,
+    history_b: pd.DataFrame,
+    moving_average_period: int = 20,
+) -> pd.DataFrame:
+    """Hitung rasio harga A/B beserta moving average dari riwayat harga."""
+    if moving_average_period <= 0:
+        raise ValueError("Periode moving average harus lebih besar dari nol.")
+
+    required = {"waktu", "price"}
+    for history in (history_a, history_b):
+        if history is None or history.empty:
+            return pd.DataFrame(columns=["waktu", "ratio", "ma20"])
+        if not required.issubset(history.columns):
+            return pd.DataFrame(columns=["waktu", "ratio", "ma20"])
+
+    prices_a = history_a[["waktu", "price"]].rename(columns={"price": "price_a"})
+    prices_b = history_b[["waktu", "price"]].rename(columns={"price": "price_b"})
+    merged = prices_a.merge(prices_b, on="waktu", how="inner").sort_values("waktu")
+    merged["price_a"] = pd.to_numeric(merged["price_a"], errors="coerce")
+    merged["price_b"] = pd.to_numeric(merged["price_b"], errors="coerce")
+    merged = merged.dropna(subset=["price_a", "price_b"])
+    merged = merged[(merged["price_a"] > 0) & (merged["price_b"] > 0)]
+    if merged.empty:
+        return pd.DataFrame(columns=["waktu", "ratio", "ma20"])
+
+    merged["ratio"] = merged["price_a"] / merged["price_b"]
+    merged["ma20"] = merged["ratio"].rolling(
+        window=moving_average_period,
+        min_periods=moving_average_period,
+    ).mean()
+    return merged[["waktu", "ratio", "ma20"]].reset_index(drop=True)

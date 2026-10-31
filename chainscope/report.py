@@ -38,7 +38,8 @@ def _money(value, currency: str) -> str:
     if value is None or pd.isna(value):
         return "-"
     v = float(value)
-    if currency.upper() == "IDR":
+    cur = currency.upper()
+    if cur == "IDR":
         if abs(v) >= 1_000_000_000_000:
             return f"Rp{v / 1_000_000_000_000:.2f} T"
         if abs(v) >= 1_000_000_000:
@@ -46,12 +47,13 @@ def _money(value, currency: str) -> str:
         if abs(v) >= 1_000_000:
             return f"Rp{v / 1_000_000:.2f} jt"
         return f"Rp{v:,.0f}".replace(",", ".")
+    prefix = "$" if cur == "USD" else f"{cur} "
     abs_v = abs(v)
     if abs_v >= 1_000_000_000:
-        return f"${v / 1_000_000_000:.2f} B"
+        return f"{prefix}{v / 1_000_000_000:.2f} B"
     if abs_v >= 1_000_000:
-        return f"${v / 1_000_000:.2f} M"
-    return f"${v:,.2f}"
+        return f"{prefix}{v / 1_000_000:.2f} M"
+    return f"{prefix}{v:,.2f}"
 
 
 def _percent(value) -> str:

@@ -40,7 +40,7 @@ def apply_premium_theme():
     [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     
     /* Jarak antar tombol menu */
-    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0.2rem !important; }
+    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0 !important; }
 
     /* 3. LOGO & MENU */
     .logo-container {
@@ -59,13 +59,14 @@ def apply_premium_theme():
         text-align: left !important; justify-content: flex-start !important;
         padding: 6px 12px !important; border-radius: 6px !important;
         font-size: 0.9rem !important; box-shadow: none !important;
-        min-height: 34px !important;
+        min-height: 34px !important; margin-bottom: 4px !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
         background-color: #F8F7FC !important; color: #171827 !important;
     }
     [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background-color: #F0E9FF !important; color: #6C35D9 !important; font-weight: 700 !important;
+        background-color: #f0e9ff !important; color: #7c3aed !important;
+        font-weight: 600 !important; border: none !important; box-shadow: none !important;
     }
 
     /* 4. KONTEN UTAMA */

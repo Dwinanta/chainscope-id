@@ -4,31 +4,26 @@ from typing import Optional
 
 import pandas as pd
 
+from . import config
+
 
 def build_price_map(
     market_df: pd.DataFrame,
     currency: str,
-    usd_idr_rate: float,
+    usd_currency_rate: float,
 ) -> dict[str, float]:
     """Bangun peta harga dalam mata uang yang dipilih.
 
-    Kunci meliputi: 'USD', 'IDR', dan semua id koin di market_df.
-    Nilai dinyatakan dalam satuan `currency`.
+    USD dan mata uang terpilih dapat dikonversi; harga koin mengikuti
+    mata uang terpilih dan berasal dari market_df.
     """
     cur = currency.upper()
-    if cur not in ("IDR", "USD"):
+    if cur not in config.CURRENCY_OPTIONS:
         raise ValueError(f"Mata uang tidak dikenal: {currency}")
-    if usd_idr_rate <= 0:
-        raise ValueError("Kurs USD/IDR harus positif.")
+    if usd_currency_rate <= 0:
+        raise ValueError("Kurs USD terhadap mata uang terpilih harus positif.")
 
-    prices: dict[str, float] = {}
-
-    if cur == "USD":
-        prices["USD"] = 1.0
-        prices["IDR"] = 1.0 / usd_idr_rate
-    else:  # IDR
-        prices["IDR"] = 1.0
-        prices["USD"] = usd_idr_rate
+    prices: dict[str, float] = {cur: 1.0, "USD": usd_currency_rate}
 
     if "id" in market_df.columns and "current_price" in market_df.columns:
         for _, row in market_df.iterrows():

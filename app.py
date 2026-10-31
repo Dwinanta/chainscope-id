@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 
 from chainscope import (
-    ui, api, auth, compare, config, converter, db, demo, formatting, 
+    ui, api, auth, compare, config, converter, db, formatting,
     indicators, journal_calc, report, search, telegram, admin
 )
 
@@ -31,8 +31,12 @@ end_date = user_profile.get("subscription_end")
 
 # 3. FUNGSI CACHE API
 @st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
-def cached_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
-    return api.fetch_market_data(vs_currency, limit)
+def cached_market_data(vs_currency: str) -> pd.DataFrame:
+    return api.fetch_market_data(vs_currency, 250)
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def cached_all_coins() -> list[dict[str, str]]:
+    return api.fetch_all_coins()
 
 @st.cache_data(ttl=300, show_spinner=False)
 def cached_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
@@ -43,15 +47,21 @@ def cached_indodax_klines(symbol: str, interval: str, limit: int) -> pd.DataFram
     return api.fetch_indodax_klines(symbol, interval, limit)
 
 @st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
-def cached_usd_idr_rate() -> float:
-    try:
-        df_usd = api.fetch_market_data("usd", 1)
-        df_idr = api.fetch_market_data("idr", 1)
-        if not df_usd.empty and not df_idr.empty:
-            return float(df_idr.iloc[0]["current_price"]) / float(df_usd.iloc[0]["current_price"])
-    except Exception:
-        pass
-    return float(config.DEMO_USD_TO_IDR)
+def cached_usd_currency_rate(currency: str) -> float:
+    """Return units of the selected currency per USD using CoinGecko prices."""
+    target_currency = currency.lower()
+    if target_currency == "usd":
+        return 1.0
+    df_usd = api.fetch_market_data("usd", 1)
+    df_target = api.fetch_market_data(target_currency, 1)
+    if df_usd.empty or df_target.empty:
+        raise api.ChainScopeAPIError("Kurs mata uang tidak tersedia dari CoinGecko.")
+
+    usd_price = float(df_usd.iloc[0]["current_price"])
+    target_price = float(df_target.iloc[0]["current_price"])
+    if usd_price <= 0 or target_price <= 0:
+        raise api.ChainScopeAPIError("Kurs mata uang dari CoinGecko tidak valid.")
+    return target_price / usd_price
 
 # 4. SIDEBAR & NAVIGASI
 if "current_page" not in st.session_state:
@@ -72,8 +82,10 @@ with st.sidebar:
     menu_config = {
         "market-overview": "🏠 Market Overview",
         "market-data": "📊 Market Data",
+        "relative-strategy": "📊 Strategi Relatif",
         "trading-journal": "📒 Trading Journal",
         "price-alerts": "🔔 Price Alerts",
+        "pdf-report": "📄 Laporan PDF",
         "technical-analysis": "📉 Technical Analysis",
         "portfolio": "💼 Portfolio",
         "converter": "💱 Converter",
@@ -89,27 +101,33 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    currency = st.radio("Mata uang:", options=["IDR", "USD"], horizontal=True)
-    coin_count = st.selectbox("Tampilkan Koin:", options=[50, 100, 250], index=0)
-    demo_mode = st.checkbox("Mode Demo", value=False)
+    currency = st.selectbox(
+        "Mata uang:",
+        options=list(config.CURRENCY_OPTIONS),
+        format_func=lambda code: config.CURRENCY_OPTIONS[code]["label"],
+    )
 
 current_page = st.session_state.current_page
 
 # 5. AMBIL DATA PASAR
-market_df = None
 data_source = "LIVE"
 
-if demo_mode:
-    market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
-    data_source = "DEMO"
-else:
-    try:
-        market_df = cached_market_data(currency, coin_count)
-    except Exception:
-        market_df = demo.get_demo_market_data(limit=min(coin_count, 50), currency=currency)
-        data_source = "DEMO (Fallback)"
+try:
+    market_df = cached_market_data(currency)
+except api.ChainScopeAPIError:
+    st.error("Gagal mengambil data dari CoinGecko.")
+    st.stop()
 
 market_df = market_df.copy()
+try:
+    all_coins = pd.DataFrame(cached_all_coins())
+except api.ChainScopeAPIError:
+    st.error("Gagal mengambil data dari CoinGecko.")
+    st.stop()
+
+if not all_coins.empty:
+    market_df = api.merge_market_and_coin_list(market_df, all_coins)
+
 market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
 market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 
@@ -169,31 +187,42 @@ if current_page == "market-overview":
         with st.container(border=True):
             c_t1, c_t2, c_t3 = st.columns([2, 1, 1.5])
             c_t1.markdown("<p style='font-weight:700; color:#171827; font-size:1rem; margin-bottom:0;'>Market Chart</p>", unsafe_allow_html=True)
-            
-            chart_coin_label = c_t2.selectbox("Koin:", market_df["label"].tolist(), label_visibility="collapsed")
-            chart_coin_id = dict(zip(market_df["label"], market_df["id"]))[chart_coin_label]
-            
-            with c_t3:
-                tf = st.segmented_control("Timeframe", ["1D", "7D", "1M", "1Y"], default="7D", label_visibility="collapsed")
-                if not tf: tf = "7D"
-            
-            days_map = {"1D": 1, "7D": 7, "1M": 30, "1Y": 365}
-            coin_row = market_df[market_df["id"] == chart_coin_id].iloc[0]
-            
-            total_mcap = market_df["market_cap"].sum()
-            coin_mcap = coin_row["market_cap"]
-            dominance = (coin_mcap / total_mcap) * 100
+            overview_coins = search.filter_coins(market_df, search_query)
+            if overview_coins.empty:
+                st.info("Tidak ada koin yang cocok dengan pencarian.")
+            else:
+                labels_by_id = dict(zip(overview_coins["id"], overview_coins["label"]))
+                chart_coin_id = c_t2.selectbox(
+                    "Koin:",
+                    options=overview_coins["id"].tolist(),
+                    format_func=lambda coin_id: labels_by_id[coin_id],
+                    label_visibility="collapsed",
+                    key="overview_coin_id",
+                )
 
-            st.markdown(f"<p style='font-size:0.75rem; color:#77788A; margin-top:5px; margin-bottom:0;'>Market Cap {coin_row['symbol_upper']} (Dominance: {dominance:.2f}%)</p>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='margin-top:0;'>{formatting.format_money(coin_mcap, currency)}</h2>", unsafe_allow_html=True)
-            
-            try:
-                hist_df = cached_price_history(chart_coin_id, currency, days_map[tf])
-                fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
-                fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.08)', line=dict(width=1.5))
-                fig_main.update_layout(margin=dict(l=0, r=0, t=5, b=0), height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, tickfont=dict(size=10)), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', tickfont=dict(size=10)))
-                st.plotly_chart(fig_main, use_container_width=True, config={'scrollZoom': True})
-            except Exception: pass
+                with c_t3:
+                    tf = st.segmented_control("Timeframe", ["1D", "7D", "1M", "1Y"], default="7D", label_visibility="collapsed")
+                    if not tf:
+                        tf = "7D"
+
+                days_map = {"1D": 1, "7D": 7, "1M": 30, "1Y": 365}
+                coin_row = market_df.loc[market_df["id"] == chart_coin_id].iloc[0]
+
+                total_mcap = market_df["market_cap"].sum()
+                coin_mcap = coin_row["market_cap"]
+                dominance = (coin_mcap / total_mcap) * 100 if total_mcap else 0
+
+                st.markdown(f"<p style='font-size:0.75rem; color:#77788A; margin-top:5px; margin-bottom:0;'>Market Cap {coin_row['symbol_upper']} (Dominance: {dominance:.2f}%)</p>", unsafe_allow_html=True)
+                st.markdown(f"<h2 style='margin-top:0;'>{formatting.format_money(coin_mcap, currency)}</h2>", unsafe_allow_html=True)
+
+                try:
+                    hist_df = cached_price_history(chart_coin_id, currency, days_map[tf])
+                    fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
+                    fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.08)', line=dict(width=1.5))
+                    fig_main.update_layout(margin=dict(l=0, r=0, t=5, b=0), height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, tickfont=dict(size=10)), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', tickfont=dict(size=10)))
+                    st.plotly_chart(fig_main, use_container_width=True, config={'scrollZoom': True})
+                except Exception:
+                    st.warning("Riwayat harga koin ini belum tersedia.")
 
     with col_right:
         with st.container(border=True):
@@ -211,25 +240,55 @@ elif current_page == "market-data":
     st.markdown("<h1>Market Data</h1>", unsafe_allow_html=True)
     
     # Pilihan Sumber Data
-    source_choice = st.radio("Pilih Sumber Data:", ["Global (Top 250)", "Indodax (Semua Koin IDR)"], horizontal=True)
+    source_choice = st.radio("Pilih Sumber Data:", ["Global (Semua Koin)", "Indodax (Semua Koin IDR)"], horizontal=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     search_query = st.text_input("🔍 Cari koin (contoh: BTC, SOL, DOGE)...", placeholder="Ketik nama atau simbol koin")
     
-    if source_choice == "Global (Top 250)":
+    if source_choice == "Global (Semua Koin)":
         # --- LOGIKA COINGECKO (Kode Lama) ---
         with st.container(border=True):
-            table_source = search.filter_coins(market_df, search_query)
-            if table_source.empty: table_source = market_df
+            coin_options = search.filter_coins(market_df, search_query)
+            if coin_options.empty:
+                st.info("Tidak ada koin yang cocok dengan pencarian.")
+                table_source = market_df.iloc[0:0]
+            else:
+                labels_by_id = dict(zip(coin_options["id"], coin_options["label"]))
+                market_coin_id = st.selectbox(
+                    "Pilih koin untuk analisis",
+                    options=coin_options["id"].tolist(),
+                    format_func=lambda coin_id: labels_by_id[coin_id],
+                    key="market_data_coin_id",
+                )
+                if st.button("Buka Technical Analysis", key="market_data_open_analysis"):
+                    st.session_state.selected_technical_coin = market_coin_id
+                    st.session_state.current_page = "technical-analysis"
+                    st.rerun()
+                table_source = (
+                    coin_options
+                    if search_query.strip()
+                    else coin_options.head(250)
+                )
             
             display_df = pd.DataFrame({
                 "#": range(1, len(table_source) + 1),
                 "Coin": table_source["name"],
                 "Ticker": table_source["symbol_upper"],
-                "Price": table_source["current_price"].map(lambda v: formatting.format_money(v, currency)),
-                "24h %": table_source["price_change_percentage_24h"].map(lambda v: f"{v:.2f}%"),
-                "24h Volume": table_source["total_volume"].map(lambda v: formatting.format_money(v, currency)),
-                "Market Cap": table_source["market_cap"].map(lambda v: formatting.format_money(v, currency)),
+                "Price": table_source["current_price"].map(
+                    lambda value: "—" if pd.isna(value) or value == 0
+                    else formatting.format_money(value, currency)
+                ),
+                "24h %": table_source["price_change_percentage_24h"].map(
+                    lambda value: "—" if pd.isna(value) else f"{value:.2f}%"
+                ),
+                "24h Volume": table_source["total_volume"].map(
+                    lambda value: "—" if pd.isna(value)
+                    else formatting.format_money(value, currency)
+                ),
+                "Market Cap": table_source["market_cap"].map(
+                    lambda value: "—" if pd.isna(value)
+                    else formatting.format_money(value, currency)
+                ),
             })
             
             event = st.dataframe(display_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
@@ -243,11 +302,11 @@ elif current_page == "market-data":
 
     else:
         # --- LOGIKA INDODAX (Semua Koin) ---
-        with st.spinner("Mengambil data dari Indodax..."):
-            indodax_df = api.fetch_indodax_all_tickers()
-            
-        if indodax_df.empty:
-            st.error("Gagal mengambil data dari Indodax.")
+        try:
+            with st.spinner("Mengambil data dari Indodax..."):
+                indodax_df = api.fetch_indodax_all_tickers()
+        except api.ChainScopeAPIError as exc:
+            st.error(f"Gagal mengambil data dari Indodax: {exc}")
         else:
             # Filter berdasarkan pencarian
             if search_query:
@@ -264,19 +323,130 @@ elif current_page == "market-data":
                 })
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+elif current_page == "relative-strategy":
+    st.markdown("<h1>Strategi Relatif</h1>", unsafe_allow_html=True)
+    st.markdown(
+        "<p style='color:#77788A;'>Bandingkan pergerakan dua koin berdasarkan rasio harga 30 hari.</p>",
+        unsafe_allow_html=True,
+    )
+
+    coin_options = market_df.drop_duplicates("id", keep="first")
+    labels_by_id = dict(zip(coin_options["id"], coin_options["label"]))
+    coin_ids = coin_options["id"].tolist()
+    default_a = "bitcoin" if "bitcoin" in labels_by_id else coin_ids[0]
+    default_b = "ethereum" if "ethereum" in labels_by_id else (
+        coin_ids[1] if len(coin_ids) > 1 else default_a
+    )
+
+    with st.container(border=True):
+        coin_a_col, coin_b_col = st.columns(2)
+        with coin_a_col:
+            coin_a_id = st.selectbox(
+                "Koin A",
+                options=coin_ids,
+                index=coin_ids.index(default_a),
+                format_func=lambda coin_id: labels_by_id[coin_id],
+                key="relative_coin_a",
+            )
+        with coin_b_col:
+            coin_b_id = st.selectbox(
+                "Koin B",
+                options=coin_ids,
+                index=coin_ids.index(default_b),
+                format_func=lambda coin_id: labels_by_id[coin_id],
+                key="relative_coin_b",
+            )
+
+    if coin_a_id == coin_b_id:
+        st.info("Pilih dua koin yang berbeda untuk menghitung rasio.")
+    else:
+        try:
+            history_a = cached_price_history(coin_a_id, currency, days=30)
+            history_b = cached_price_history(coin_b_id, currency, days=30)
+            ratio_df = compare.build_relative_ratio(history_a, history_b)
+        except api.ChainScopeAPIError as exc:
+            st.error(f"Gagal mengambil riwayat harga CoinGecko: {exc}")
+        else:
+            if ratio_df.empty:
+                st.warning("Data historis yang beririsan tidak tersedia untuk kedua koin.")
+            else:
+                coin_a_label = labels_by_id[coin_a_id]
+                coin_b_label = labels_by_id[coin_b_id]
+                current_ratio = float(ratio_df["ratio"].iloc[-1])
+                average_ratio = float(ratio_df["ratio"].mean())
+
+                if current_ratio > average_ratio:
+                    relative_status = f"{coin_a_label} Overvalued"
+                elif current_ratio < average_ratio:
+                    relative_status = f"{coin_b_label} Overvalued"
+                else:
+                    relative_status = "Relatif seimbang"
+
+                with st.container(border=True):
+                    metric_cols = st.columns(3)
+                    metric_cols[0].metric("Rasio Saat Ini", f"{current_ratio:.6g}")
+                    metric_cols[1].metric("Rata-rata 30 Hari", f"{average_ratio:.6g}")
+                    metric_cols[2].metric("Status Relatif", relative_status)
+                    st.caption(
+                        "Interpretasi relatif terhadap rata-rata rasio 30 hari; "
+                        "bukan penilaian nilai intrinsik koin."
+                    )
+
+                fig_ratio = go.Figure()
+                fig_ratio.add_trace(go.Scatter(
+                    x=ratio_df["waktu"],
+                    y=ratio_df["ratio"],
+                    mode="lines",
+                    name=f"{coin_a_label} / {coin_b_label}",
+                    line={"color": "#7c3aed", "width": 2},
+                ))
+                fig_ratio.add_trace(go.Scatter(
+                    x=ratio_df["waktu"],
+                    y=ratio_df["ma20"],
+                    mode="lines",
+                    name="MA 20",
+                    line={"color": "#a78bfa", "width": 1.5, "dash": "dash"},
+                ))
+                fig_ratio.update_layout(
+                    template="plotly_white",
+                    height=430,
+                    margin={"l": 12, "r": 12, "t": 25, "b": 12},
+                    paper_bgcolor="#ffffff",
+                    plot_bgcolor="#ffffff",
+                    legend={"orientation": "h", "y": 1.08, "x": 0},
+                    xaxis={"showgrid": False, "title": None},
+                    yaxis={
+                        "showgrid": True,
+                        "gridcolor": "#f0e9ff",
+                        "title": f"Rasio {coin_a_label} / {coin_b_label}",
+                    },
+                )
+                with st.container(border=True):
+                    st.plotly_chart(
+                        fig_ratio,
+                        use_container_width=True,
+                        config={"displayModeBar": False},
+                    )
+
 elif current_page == "technical-analysis":
     st.markdown("<h1>Technical Analysis</h1>", unsafe_allow_html=True)
-    
-    default_coin = st.session_state.get("selected_technical_coin", "bitcoin")
-    default_idx = int(market_df[market_df["id"] == default_coin].index[0]) if default_coin in market_df["id"].values else 0
-    
-    tech_label = st.selectbox("Pilih Koin:", market_df["label"].tolist(), index=default_idx)
-    
-    # Ambil simbol (misal: "BTC")
-    symbol_upper = dict(zip(market_df["label"], market_df["symbol_upper"]))[tech_label]
-    
     from chainscope.chart_component import render_modern_chart
-    render_modern_chart(symbol=symbol_upper, height=680)
+    selected_coin_id = st.session_state.get("selected_technical_coin", "bitcoin")
+    selected_rows = market_df.loc[market_df["id"] == selected_coin_id]
+    selected_symbol = (
+        selected_rows.iloc[0]["symbol_upper"] if not selected_rows.empty else "BTCUSDT"
+    )
+    chart_coins = (
+        market_df[["id", "symbol_upper", "name", "image"]]
+        .fillna("")
+        .rename(columns={"symbol_upper": "symbol"})
+        .to_dict("records")
+    )
+    render_modern_chart(
+        selected_symbol,
+        coins=chart_coins,
+        selected_coin_id=selected_coin_id,
+    )
 
 elif current_page == "trading-journal":
     st.markdown("<h1>Trading Journal</h1>", unsafe_allow_html=True)
@@ -356,10 +526,30 @@ elif current_page == "price-alerts":
         st.markdown("#### Daftar Alert")
         alerts = db.get_user_alerts(user.id)
         if alerts:
-            for a in alerts:
-                st.markdown(f"**{a['symbol']}** {a['condition']} {a['target_price']} {a['currency']} — {'Triggered' if not a['is_active'] else 'Waiting'}")
+            alert_df = pd.DataFrame([
+                {
+                    "Koin": alert["symbol"],
+                    "Kondisi": "Di atas" if alert["condition"] == "above" else "Di bawah",
+                    "Target": formatting.format_money(alert["target_price"], alert["currency"]),
+                    "Status": "Menunggu" if alert.get("is_active", True) else "Terpicu",
+                    "Dibuat": alert.get("created_at", "—"),
+                }
+                for alert in alerts
+            ])
+            st.dataframe(alert_df, use_container_width=True, hide_index=True)
         else:
             st.info("Belum ada alert aktif.")
+
+elif current_page == "pdf-report":
+    st.markdown("<h1>Laporan PDF</h1>", unsafe_allow_html=True)
+    st.write("Unduh ringkasan pasar berdasarkan data yang sedang ditampilkan.")
+    pdf_bytes = report.build_weekly_report(market_df, currency, data_source)
+    st.download_button(
+        "Unduh Laporan PDF",
+        data=pdf_bytes,
+        file_name=f"chainscope-weekly-report-{datetime.now():%Y-%m-%d}.pdf",
+        mime="application/pdf",
+    )
 
 elif current_page == "portfolio":
     st.markdown("<h1>Portfolio</h1>", unsafe_allow_html=True)
@@ -373,8 +563,11 @@ elif current_page == "portfolio":
             st.warning("Semua aset sudah terjual.")
         else:
             pf_df = pf_df.merge(market_df[["id", "current_price"]], left_on="coin_id", right_on="id", how="left")
-            rate = cached_usd_idr_rate() if currency == "IDR" else 1.0
-            if demo_mode: rate = config.DEMO_USD_TO_IDR if currency == "IDR" else 1.0
+            try:
+                rate = cached_usd_currency_rate(currency)
+            except api.ChainScopeAPIError:
+                st.error("Gagal mengambil kurs mata uang dari CoinGecko.")
+                st.stop()
             
             pf_df["current_price"] = pf_df["current_price"].fillna(0)
             pf_df["avg_buy_price"] = pf_df["avg_buy_price_usd"] * rate
@@ -402,14 +595,22 @@ elif current_page == "portfolio":
 elif current_page == "converter":
     st.markdown("<h1>Converter</h1>", unsafe_allow_html=True)
     with st.container(border=True):
-        rate = cached_usd_idr_rate() if currency == "IDR" else 1.0
+        try:
+            rate = cached_usd_currency_rate(currency)
+        except api.ChainScopeAPIError:
+            st.error("Gagal mengambil kurs mata uang dari CoinGecko.")
+            st.stop()
         price_map = converter.build_price_map(market_df, currency, rate)
         col1, col2 = st.columns(2)
-        from_asset = col1.selectbox("Dari:", ["USD", "IDR"] + market_df["id"].tolist())
-        to_asset = col2.selectbox("Ke:", ["USD", "IDR"] + market_df["id"].tolist(), index=1)
+        fiat_assets = list(dict.fromkeys(["USD", currency]))
+        asset_options = fiat_assets + market_df["id"].tolist()
+        selected_currency_index = fiat_assets.index(currency)
+        from_asset = col1.selectbox("Dari:", asset_options)
+        to_asset = col2.selectbox("Ke:", asset_options, index=selected_currency_index)
         amount = st.number_input("Jumlah:", min_value=0.0, value=1.0)
         res = converter.convert(amount, from_asset, to_asset, price_map)
-        if res: st.metric("Hasil", formatting.format_money(res, currency))
+        if res is not None:
+            st.metric("Hasil", formatting.format_money(res, currency))
 
 elif current_page == "watchlist":
     st.markdown("<h1>Watchlist</h1>", unsafe_allow_html=True)
