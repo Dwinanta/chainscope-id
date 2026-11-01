@@ -9,10 +9,17 @@ def apply_premium_theme():
     /* 1. Reset Dasar */
     .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
     
-    /* JANGAN SEMBUNYIKAN HEADER, biarkan tombol panah muncul */
-    header[data-testid="stHeader"] { background-color: transparent !important; background: transparent !important; }
+    header[data-testid="stHeader"] { display: none !important; }
     
-    .block-container { padding-top: 1rem !important; max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+    .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    ::-webkit-scrollbar { display: none !important; }
 
     /* 2. SIDEBAR */
     [data-testid="stSidebar"] {
@@ -88,9 +95,5 @@ def apply_premium_theme():
     .text-green { color: #16834A !important; font-weight: 700; }
     .text-red { color: #D83D50 !important; font-weight: 700; }
 
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
-    }
     </style>
     """, unsafe_allow_html=True)
