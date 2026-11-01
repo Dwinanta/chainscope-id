@@ -1,4 +1,6 @@
 """Modul koneksi database dan query Supabase."""
+from datetime import date, timedelta
+
 import streamlit as st
 from supabase import create_client, Client
 
@@ -15,6 +17,14 @@ def get_user_profile(user_id: str) -> dict:
     supabase = get_supabase()
     res = supabase.table("profiles").select("*").eq("id", user_id).execute()
     return res.data[0] if res.data else {}
+
+def upgrade_to_premium(user_id: str):
+    """Upgrade a profile to premium for 30 days."""
+    subscription_end = (date.today() + timedelta(days=30)).isoformat()
+    return get_supabase().table("profiles").update({
+        "subscription_tier": "premium",
+        "subscription_end": subscription_end,
+    }).eq("id", user_id).execute()
 
 def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float, price_usd: float, trade_time: str, source: str = "manual", strategy_tag: str = "Swing"):
     supabase = get_supabase()

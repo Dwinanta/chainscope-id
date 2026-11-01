@@ -10,7 +10,7 @@ import streamlit as st
 
 from chainscope import (
     ui, api, auth, compare, config, converter, db, formatting,
-    indicators, journal_calc, report, search, telegram, admin
+    indicators, journal_calc, report, search, telegram, admin, payment
 )
 
 # 1. KONFIGURASI HALAMAN
@@ -553,6 +553,34 @@ elif current_page == "pdf-report":
 
 elif current_page == "portfolio":
     st.markdown("<h1>Portfolio</h1>", unsafe_allow_html=True)
+    if user_profile.get("subscription_tier", "free").lower() != "premium":
+        if st.button("🚀 Upgrade ke Premium (Rp 50.000)"):
+            try:
+                st.session_state["premium_payment_url"] = payment.create_snap_transaction(
+                    user.id, user.email, 50000
+                )
+            except (ValueError, payment.SnapPaymentError) as error:
+                st.error(str(error))
+
+        payment_url = st.session_state.get("premium_payment_url")
+        if payment_url:
+            st.link_button("Bayar Sekarang", url=payment_url)
+            if payment.is_midtrans_production():
+                st.caption(
+                    "Status Premium diperbarui setelah pembayaran terverifikasi "
+                    "oleh sistem pembayaran."
+                )
+            elif st.button("Saya sudah bayar"):
+                db.upgrade_to_premium(user.id)
+                st.session_state.pop("premium_payment_url", None)
+                st.success("Akun berhasil di-upgrade ke Premium selama 30 hari.")
+                st.rerun()
+            else:
+                st.caption(
+                    "Mode demo: status Premium aktif setelah konfirmasi manual "
+                    "dan berlaku selama 30 hari."
+                )
+
     trades = db.get_user_trades(user.id)
     
     if not trades:
