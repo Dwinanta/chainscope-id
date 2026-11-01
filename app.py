@@ -135,12 +135,11 @@ market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 # ROUTING HALAMAN
 # ===========================================================================
 if current_page == "market-overview":
-    col_title, col_search, col_profile = st.columns([2.5, 2, 0.5])
+    col_title, col_search, col_profile = st.columns([2.5, 2, 0.5], vertical_alignment="center")
     with col_title:
         st.markdown("<h1>Market Overview</h1>", unsafe_allow_html=True)
         st.markdown("<p style='font-size:0.9rem; margin-top:5px;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
     with col_search:
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         search_query = st.text_input("Search", placeholder="🔍 Search coins...", label_visibility="collapsed")
     with col_profile:
         with st.popover("👤"):
@@ -182,7 +181,7 @@ if current_page == "market-overview":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    col_chart, col_right = st.columns([2.5, 1])
+    col_chart, col_movers = st.columns([2.5, 1])
     with col_chart:
         with st.container(border=True):
             c_t1, c_t2, c_t3 = st.columns([2, 1, 1.5])
@@ -219,15 +218,15 @@ if current_page == "market-overview":
                     hist_df = cached_price_history(chart_coin_id, currency, days_map[tf])
                     fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
                     fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.08)', line=dict(width=1.5))
-                    fig_main.update_layout(margin=dict(l=0, r=0, t=5, b=0), height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, tickfont=dict(size=10)), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', tickfont=dict(size=10)))
-                    st.plotly_chart(fig_main, use_container_width=True, config={'scrollZoom': True})
+                    fig_main.update_layout(margin=dict(l=0, r=0, t=5, b=0), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, tickfont=dict(size=10)), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', tickfont=dict(size=10)))
+                    st.plotly_chart(fig_main, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': True})
                 except Exception:
                     st.warning("Riwayat harga koin ini belum tersedia.")
 
-    with col_right:
+    with col_movers:
         with st.container(border=True):
-            gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(4)
-            losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(4)
+            gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(3)
+            losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(3)
             html = f"<p style='font-weight:700; font-size:0.95rem; color:#171827; margin-bottom:10px;'>Top Gainers ⚡</p>"
             for _, r in gainers.iterrows():
                 html += f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><div style='display:flex; gap:6px;'><img src='{r['image']}' width='16'><div><span style='font-size:0.75rem; font-weight:600;'>{r['symbol_upper']}</span><br><span style='font-size:0.65rem;'>{formatting.format_money(r['current_price'], currency)}</span></div></div><span class='text-green'>+{r['price_change_percentage_24h']:.2f}%</span></div>"
@@ -461,9 +460,10 @@ elif current_page == "trading-journal":
                 t_date = st.date_input("Tanggal", datetime.now())
                 t_amount = st.number_input("Jumlah Koin", min_value=0.00000001, format="%.8f")
                 t_price = st.number_input("Harga (USD)", min_value=0.01)
+                t_strategy = st.selectbox("Strategi", ["Swing", "Scalping", "Hedge", "Long-term"])
                 if st.form_submit_button("Simpan Transaksi", use_container_width=True):
                     sym = market_df[market_df["id"]==t_coin]["symbol_upper"].values[0]
-                    db.add_trade(user.id, t_coin, sym, t_side, t_amount, t_price, str(t_date))
+                    db.add_trade(user.id, t_coin, sym, t_side, t_amount, t_price, str(t_date), strategy_tag=t_strategy)
                     st.success("Transaksi tersimpan!")
                     st.rerun()
 

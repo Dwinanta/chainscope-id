@@ -87,5 +87,10 @@ def apply_premium_theme():
     h2 { color: #171827 !important; font-weight: 800 !important; font-size: 1.4rem !important; }
     .text-green { color: #16834A !important; font-weight: 700; }
     .text-red { color: #D83D50 !important; font-weight: 700; }
+
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+    }
     </style>
     """, unsafe_allow_html=True)

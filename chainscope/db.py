@@ -16,7 +16,7 @@ def get_user_profile(user_id: str) -> dict:
     res = supabase.table("profiles").select("*").eq("id", user_id).execute()
     return res.data[0] if res.data else {}
 
-def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float, price_usd: float, trade_time: str, source: str = "manual"):
+def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float, price_usd: float, trade_time: str, source: str = "manual", strategy_tag: str = "Swing"):
     supabase = get_supabase()
     data = {
         "user_id": user_id,
@@ -26,13 +26,14 @@ def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float,
         "amount": amount,
         "price_usd": price_usd,
         "trade_time": trade_time,
-        "source": source
+        "source": source,
+        "strategy_tag": strategy_tag
     }
     return supabase.table("trades").insert(data).execute()
 
-def get_user_trades(user_id: str):
+def get_user_trades(user_id: str, limit: int = 100):
     supabase = get_supabase()
-    res = supabase.table("trades").select("*").eq("user_id", user_id).order("trade_time", desc=True).execute()
+    res = supabase.table("trades").select("*").eq("user_id", user_id).order("trade_time", desc=True).limit(limit).execute()
     return res.data
 
 def get_all_users_dev():
