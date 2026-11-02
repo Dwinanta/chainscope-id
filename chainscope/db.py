@@ -1,5 +1,5 @@
 """Modul koneksi database dan query Supabase."""
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 
 import streamlit as st
 from supabase import create_client, Client
@@ -20,11 +20,39 @@ def get_user_profile(user_id: str) -> dict:
 
 def upgrade_to_premium(user_id: str):
     """Upgrade a profile to premium for 30 days."""
-    subscription_end = (date.today() + timedelta(days=30)).isoformat()
+    subscription_end = (datetime.now() + timedelta(days=30)).date().isoformat()
     return get_supabase().table("profiles").update({
         "subscription_tier": "premium",
         "subscription_end": subscription_end,
     }).eq("id", user_id).execute()
+
+def delete_user(user_id: str) -> bool:
+    """Delete a user's app data and, when configured, their Auth account.
+
+    Returns True when the Auth account was deleted. Without a service role
+    key, only app data can be removed; the Auth account remains.
+    """
+    if not user_id:
+        raise ValueError("ID pengguna wajib diisi.")
+
+    service_role_key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+    supabase_url = st.secrets.get("SUPABASE_URL", "")
+    if service_role_key:
+        if not supabase_url:
+            raise ValueError("SUPABASE_URL belum diatur di secrets.toml.")
+        supabase = create_client(supabase_url, service_role_key)
+    else:
+        supabase = get_supabase()
+
+    for table in ("trades", "alerts", "watchlists"):
+        supabase.table(table).delete().eq("user_id", user_id).execute()
+    supabase.table("profiles").delete().eq("id", user_id).execute()
+
+    if not service_role_key:
+        return False
+
+    supabase.auth.admin.delete_user(user_id)
+    return True
 
 def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float, price_usd: float, trade_time: str, source: str = "manual", strategy_tag: str = "Swing"):
     supabase = get_supabase()

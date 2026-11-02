@@ -1,7 +1,8 @@
 """
 ChainScope ID - Premium Light Mode (Full Features & Indodax Chart)
 """
-from datetime import datetime
+from datetime import datetime, timezone
+from hashlib import sha256
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -19,8 +20,140 @@ ui.apply_premium_theme()
 
 # 2. CEK AUTENTIKASI
 auth.check_session()
+if "show_landing" not in st.session_state:
+    st.session_state.show_landing = True
+
 if "user" not in st.session_state or st.session_state.user is None:
-    auth.show_auth_page()
+    if st.session_state.show_landing:
+        st.markdown(
+            """
+            <style>
+            .stApp { background: #f8f5ff !important; color: #171827; }
+            .block-container {
+                max-width: 1100px !important;
+                padding-top: 0.5rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+            .stButton > button[kind="primary"] {
+                background: #7c3aed !important;
+                border: 1px solid #7c3aed !important;
+                color: white !important;
+            }
+            .landing-hero { text-align: center; padding: 0.45rem 0 0.2rem; }
+            .landing-hero h1 {
+                color: #171827 !important; font-size: 2.25rem !important;
+                line-height: 1.15; margin: 0.25rem 0 0.45rem;
+            }
+            .landing-hero p { color: #625d70; font-size: 1rem; margin: 0; }
+            .landing-section-title {
+                color: #171827; font-size: 1.1rem; font-weight: 700;
+                text-align: center; margin: 0.6rem 0 0.4rem;
+            }
+            .landing-card {
+                background: #fff; border: 1px solid #e8defc; border-radius: 14px;
+                padding: 0.75rem 1rem; min-height: 94px;
+            }
+            .landing-card h3 { color: #171827; font-size: 1rem; margin: 0 0 0.25rem; }
+            .landing-card p { color: #625d70; font-size: 0.88rem; margin: 0; }
+            .landing-price { min-height: 118px; text-align: center; }
+            .landing-price .price {
+                color: #7c3aed; font-size: 1.4rem; font-weight: 800;
+                margin: 0.25rem 0;
+            }
+            .landing-footer {
+                color: #77788a; font-size: 0.75rem; text-align: center;
+                padding-top: 0.4rem;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            """
+            <div class="landing-hero">
+                <div style="font-size:2rem;">⚡</div>
+                <h1>ChainScope ID - Platform Analitik Crypto Terlengkap</h1>
+                <p>Pantau pasar, analisis strategi, dan kelola portofolio kripto Anda.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        _, cta_col, _ = st.columns([1.5, 1, 1.5])
+        with cta_col:
+            if st.button(
+                "Mulai Gratis",
+                type="primary",
+                use_container_width=True,
+                key="landing_get_started",
+            ):
+                st.session_state.show_landing = False
+                st.rerun()
+
+        st.markdown(
+            "<div class='landing-section-title'>Fitur Unggulan</div>",
+            unsafe_allow_html=True,
+        )
+        feature_cols = st.columns(3)
+        features = [
+            (
+                "📉",
+                "Analisis Teknikal Interaktif",
+                "Jelajahi grafik dan indikator teknikal untuk membaca tren pasar.",
+            ),
+            (
+                "💼",
+                "Portofolio Otomatis",
+                "Catat transaksi dan pantau nilai serta kinerja aset Anda.",
+            ),
+            (
+                "🔔",
+                "Notifikasi Telegram",
+                "Terima alert harga langsung melalui Telegram.",
+            ),
+        ]
+        for column, (icon, title, description) in zip(feature_cols, features):
+            with column:
+                st.markdown(
+                    f"<div class='landing-card'><h3>{icon} {title}</h3>"
+                    f"<p>{description}</p></div>",
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown(
+            "<div class='landing-section-title'>Pilih Paket Anda</div>",
+            unsafe_allow_html=True,
+        )
+        pricing_cols = st.columns(2)
+        plans = [
+            ("Free", "Gratis", "Akses fitur utama untuk mulai memantau pasar."),
+            ("Premium", "Rp 50.000/bulan", "Akses fitur premium untuk analisis lebih lengkap."),
+        ]
+        for column, (plan_name, price, description) in zip(pricing_cols, plans):
+            with column:
+                st.markdown(
+                    f"<div class='landing-card landing-price'><h3>{plan_name}</h3>"
+                    f"<div class='price'>{price}</div><p>{description}</p></div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    "Pilih Paket",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"landing_plan_{plan_name.lower()}",
+                ):
+                    st.session_state.show_landing = False
+                    st.rerun()
+
+        st.markdown(
+            "<div class='landing-footer'>© 2026 ChainScope ID</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        if st.button("← Kembali ke halaman depan", key="back_to_landing"):
+            st.session_state.show_landing = True
+            st.rerun()
+        auth.show_auth_page()
     st.stop()
 
 user = st.session_state.user
@@ -553,34 +686,6 @@ elif current_page == "pdf-report":
 
 elif current_page == "portfolio":
     st.markdown("<h1>Portfolio</h1>", unsafe_allow_html=True)
-    if user_profile.get("subscription_tier", "free").lower() != "premium":
-        if st.button("🚀 Upgrade ke Premium (Rp 50.000)"):
-            try:
-                st.session_state["premium_payment_url"] = payment.create_snap_transaction(
-                    user.id, user.email, 50000
-                )
-            except (ValueError, payment.SnapPaymentError) as error:
-                st.error(str(error))
-
-        payment_url = st.session_state.get("premium_payment_url")
-        if payment_url:
-            st.link_button("Bayar Sekarang", url=payment_url)
-            if payment.is_midtrans_production():
-                st.caption(
-                    "Status Premium diperbarui setelah pembayaran terverifikasi "
-                    "oleh sistem pembayaran."
-                )
-            elif st.button("Saya sudah bayar"):
-                db.upgrade_to_premium(user.id)
-                st.session_state.pop("premium_payment_url", None)
-                st.success("Akun berhasil di-upgrade ke Premium selama 30 hari.")
-                st.rerun()
-            else:
-                st.caption(
-                    "Mode demo: status Premium aktif setelah konfirmasi manual "
-                    "dan berlaku selama 30 hari."
-                )
-
     trades = db.get_user_trades(user.id)
     
     if not trades:
@@ -611,6 +716,7 @@ elif current_page == "portfolio":
             
             st.markdown("<br>", unsafe_allow_html=True)
             with st.container(border=True):
+                st.subheader("Rincian Aset")
                 display_df = pd.DataFrame({
                     "Koin": pf_df["symbol"],
                     "Jumlah": pf_df["amount"].map(lambda x: f"{x:.4f}"),
@@ -619,6 +725,54 @@ elif current_page == "portfolio":
                     "P&L": pf_df["pnl"].map(lambda v: formatting.format_money(v, currency)),
                 })
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+            strategy_df = pf_df.groupby("strategy_tag", as_index=False)["current_value"].sum()
+            fig = px.pie(
+                strategy_df,
+                values="current_value",
+                names="strategy_tag",
+                color_discrete_sequence=["#7c3aed", "#9d5cf5", "#c4a1fa"],
+                title="Alokasi Portofolio per Strategi",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    if user_profile.get("subscription_tier", "free").lower() != "premium":
+        if st.button("🚀 Upgrade ke Premium (Rp 50.000)"):
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+            order_id = (
+                f"PREMIUM-{sha256(user.id.encode()).hexdigest()[:12]}-{timestamp}"
+            )
+            st.session_state["premium_payment_order_id"] = order_id
+            try:
+                st.session_state["premium_payment_url"] = payment.create_snap_transaction(
+                    user.id, user.email, 50000, order_id=order_id
+                )
+            except (ValueError, payment.SnapPaymentError) as error:
+                st.session_state.pop("premium_payment_url", None)
+                st.error(str(error))
+
+        payment_url = st.session_state.get("premium_payment_url")
+        if payment_url:
+            st.link_button("Bayar Sekarang", url=payment_url)
+
+        order_id = st.session_state.get("premium_payment_order_id")
+        if order_id and st.button("Cek Status Pembayaran"):
+            try:
+                transaction_status = payment.check_transaction_status(order_id)
+            except (ValueError, payment.SnapPaymentError) as error:
+                st.error(str(error))
+            else:
+                if transaction_status in {"settlement", "capture"}:
+                    db.upgrade_to_premium(user.id)
+                    st.session_state.pop("premium_payment_order_id", None)
+                    st.session_state.pop("premium_payment_url", None)
+                    st.success("Pembayaran terverifikasi. Akun Premium aktif selama 30 hari.")
+                elif transaction_status == "pending":
+                    st.info("Pembayaran masih tertunda. Silakan selesaikan pembayaran di Midtrans.")
+                elif transaction_status in {"expire", "deny"}:
+                    st.error(f"Pembayaran gagal dengan status: {transaction_status}.")
+                else:
+                    st.warning(f"Status pembayaran saat ini: {transaction_status}.")
 
 elif current_page == "converter":
     st.markdown("<h1>Converter</h1>", unsafe_allow_html=True)
@@ -682,7 +836,7 @@ elif current_page == "admin-panel" and is_dev:
                 selected_user = next((u for u in all_users if u["email"] == selected_email), None)
                 uid = selected_user["id"]
                 
-                col_r, col_t, col_d = st.columns(3)
+                col_r, col_t, col_delete, col_d = st.columns(4)
                 
                 with col_r:
                     current_role = selected_user.get("role", "user")
@@ -699,6 +853,35 @@ elif current_page == "admin-panel" and is_dev:
                         admin.update_user_subscription(uid, new_tier)
                         st.success("Tier diupdate.")
                         st.rerun()
+
+                with col_delete:
+                    st.checkbox(
+                        "Saya yakin ingin menghapus user ini",
+                        key=f"confirm_delete_user_{uid}",
+                        disabled=uid == user.id,
+                    )
+                    if uid == user.id:
+                        st.caption("Admin tidak dapat menghapus akunnya sendiri.")
+                    if st.button(
+                        "🗑️ Hapus User",
+                        type="primary",
+                        key=f"delete_user_{uid}",
+                        disabled=uid == user.id,
+                    ):
+                        if st.session_state.get(f"confirm_delete_user_{uid}", False):
+                            auth_account_deleted = db.delete_user(uid)
+                            if auth_account_deleted:
+                                st.success("User dan akun autentikasi berhasil dihapus.")
+                            else:
+                                st.success("Data aplikasi user berhasil dihapus.")
+                                st.warning(
+                                    "Akun autentikasi masih ada. Tambahkan "
+                                    "`SUPABASE_SERVICE_ROLE_KEY` ke "
+                                    "`.streamlit/secrets.toml` untuk menghapusnya."
+                                )
+                            st.rerun()
+                        else:
+                            st.warning("Centang konfirmasi sebelum menghapus user.")
                         
                 with col_d:
                     st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)

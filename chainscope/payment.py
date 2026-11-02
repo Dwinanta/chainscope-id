@@ -1,8 +1,10 @@
 """Midtrans Snap payment helpers."""
 from hashlib import sha256
 from uuid import uuid4
+from urllib.parse import quote
 
 import midtransclient
+import requests
 import streamlit as st
 
 
@@ -26,7 +28,9 @@ def is_midtrans_production() -> bool:
     raise ValueError("MIDTRANS_IS_PRODUCTION harus berupa boolean.")
 
 
-def create_snap_transaction(user_id: str, email: str, amount: int) -> str:
+def create_snap_transaction(
+    user_id: str, email: str, amount: int, order_id: str | None = None
+) -> str:
     """Create a Midtrans Snap transaction and return its redirect URL."""
     if not user_id:
         raise ValueError("ID pengguna wajib diisi.")
@@ -34,6 +38,11 @@ def create_snap_transaction(user_id: str, email: str, amount: int) -> str:
         raise ValueError("Email pengguna wajib diisi.")
     if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
         raise ValueError("Jumlah pembayaran harus berupa bilangan bulat positif.")
+
+    if order_id is None:
+        order_id = f"cs-{sha256(user_id.encode()).hexdigest()[:8]}-{uuid4().hex}"
+    if not isinstance(order_id, str) or not order_id or len(order_id) > 50:
+        raise ValueError("ID pesanan Midtrans wajib diisi dan maksimal 50 karakter.")
 
     server_key = st.secrets.get("MIDTRANS_SERVER_KEY")
     if not server_key:
@@ -43,7 +52,6 @@ def create_snap_transaction(user_id: str, email: str, amount: int) -> str:
         server_key=server_key,
         is_production=is_midtrans_production(),
     )
-    order_id = f"cs-{sha256(user_id.encode()).hexdigest()[:8]}-{uuid4().hex}"
     try:
         transaction = snap.create_transaction({
             "transaction_details": {
@@ -59,3 +67,39 @@ def create_snap_transaction(user_id: str, email: str, amount: int) -> str:
     if not redirect_url:
         raise ValueError("Midtrans tidak mengembalikan URL pembayaran.")
     return redirect_url
+
+
+def check_transaction_status(order_id: str) -> str:
+    """Fetch the authoritative transaction status from Midtrans."""
+    if not isinstance(order_id, str) or not order_id or len(order_id) > 50:
+        raise ValueError("ID pesanan Midtrans tidak valid.")
+
+    server_key = st.secrets.get("MIDTRANS_SERVER_KEY")
+    if not server_key:
+        raise ValueError("MIDTRANS_SERVER_KEY belum diatur di secrets.toml.")
+
+    environment = (
+        "api.midtrans.com"
+        if is_midtrans_production()
+        else "api.sandbox.midtrans.com"
+    )
+    url = f"https://{environment}/v2/{quote(order_id, safe='')}/status"
+    try:
+        response = requests.get(url, auth=(server_key, ""), timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise SnapPaymentError("Midtrans gagal memeriksa status pembayaran.") from exc
+
+    try:
+        transaction = response.json()
+    except ValueError as exc:
+        raise SnapPaymentError("Midtrans mengembalikan respons status yang tidak valid.") from exc
+
+    transaction_status = (
+        transaction.get("transaction_status")
+        if isinstance(transaction, dict)
+        else None
+    )
+    if not isinstance(transaction_status, str) or not transaction_status:
+        raise SnapPaymentError("Status transaksi tidak ditemukan pada respons Midtrans.")
+    return transaction_status

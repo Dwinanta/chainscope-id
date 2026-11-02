@@ -42,6 +42,18 @@ def register_user(email, password):
     except Exception as e:
         return False, str(e)
 
+def request_password_reset(email: str) -> tuple[bool, str]:
+    """Request a password reset email through Supabase Auth."""
+    supabase = db.get_supabase()
+    try:
+        supabase.auth.reset_password_for_email(email)
+        return (
+            True,
+            "Jika email terdaftar, link reset password telah dikirim. Cek inbox Anda.",
+        )
+    except Exception as e:
+        return False, str(e)
+
 def logout_user():
     supabase = db.get_supabase()
     try:
@@ -73,6 +85,25 @@ def show_auth_page():
                     st.rerun()
                 else:
                     st.error(f"Gagal login: {msg}")
+
+        if st.button("Lupa Password?", key="forgot_password"):
+            st.session_state.show_password_reset = True
+
+        if st.session_state.get("show_password_reset", False):
+            with st.form("reset_password_form"):
+                reset_email = st.text_input("Email untuk reset password")
+                reset_submit = st.form_submit_button(
+                    "Kirim link reset password", type="primary"
+                )
+                if reset_submit:
+                    if not reset_email.strip():
+                        st.error("Email wajib diisi.")
+                    else:
+                        success, msg = request_password_reset(reset_email.strip())
+                        if success:
+                            st.success(msg)
+                        else:
+                            st.error(f"Gagal mengirim link reset password: {msg}")
                     
     with tab2:
         with st.form("register_form"):
