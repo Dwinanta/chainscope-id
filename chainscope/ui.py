@@ -95,5 +95,37 @@ def apply_premium_theme():
     .text-green { color: #16834A !important; font-weight: 700; }
     .text-red { color: #D83D50 !important; font-weight: 700; }
 
+    @media (max-width: 768px) {
+        .block-container {
+            width: 100% !important;
+            max-width: 100vw !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            box-sizing: border-box !important;
+        }
+        [data-testid="stMain"] {
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+        [data-testid="stSidebar"] {
+            max-width: 85vw !important;
+            box-sizing: border-box !important;
+        }
+        [data-testid="stSidebar"] > div:first-child {
+            padding: 2.5rem 0.75rem 0.75rem !important;
+        }
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="collapsedControl"] {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: fixed !important;
+            top: 10px !important;
+            left: 10px !important;
+            z-index: 9999 !important;
+        }
+        .logo-container { margin-top: 0.5rem !important; }
+    }
+
     </style>
     """, unsafe_allow_html=True)

@@ -16,5 +16,11 @@ def test_sidebar_navigation_uses_minimal_active_and_inactive_styles(monkeypatch)
     assert "background-color: #f0e9ff !important" in css
     assert "color: #7c3aed !important" in css
     assert "margin-bottom: 4px !important" in css
+    assert "@media (max-width: 768px)" in css
+    assert '[data-testid="stSidebarCollapseButton"]' in css
+    assert '[data-testid="collapsedControl"]' in css
+    assert "display: flex !important;" in css
+    assert "position: fixed !important;" in css
+    assert "max-width: 100vw !important;" in css
+    assert "max-width: 85vw !important;" in css
     assert rendered["options"] == {"unsafe_allow_html": True}
-
