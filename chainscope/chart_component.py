@@ -85,6 +85,7 @@ def render_modern_chart(
         .source-dot { width: 7px; height: 7px; flex: 0 0 7px;
           border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.12); }
         .source-dot.indodax { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.12); }
+        .source-dot.coingecko { background: #8b5cf6; box-shadow: 0 0 0 2px rgba(139,92,246,.12); }
         .group { display: flex; align-items: center; flex: 0 1 auto; flex-wrap: wrap; gap: 1px;
           min-width: 0; padding: 1px; border-radius: 5px; background: transparent; }
         button { min-height: 21px; padding: 3px 5px; border: 0; border-radius: 4px;
@@ -351,7 +352,10 @@ def render_modern_chart(
         function setSourceStatus(source) {
           const usingIndodax = source === "indodax";
           sourceBadge.classList.toggle("indodax", usingIndodax);
-          const label = usingIndodax ? "Sumber harga Indodax" : "Sumber harga Binance";
+          sourceBadge.classList.toggle("coingecko", source === "coingecko");
+          const label = usingIndodax ? "Sumber harga Indodax"
+            : source === "coingecko" ? "Sumber harga CoinGecko"
+            : "Sumber harga Binance";
           sourceBadge.setAttribute("aria-label", label);
           sourceBadge.title = label;
         }
@@ -472,34 +476,10 @@ def render_modern_chart(
           closeCoinModal();
           if (coin.symbol === state.symbol && coin.id === state.coinId) return;
           state.coinId = coin.id;
-          if (!/^[A-Z0-9]{2,20}$/.test(coin.symbol)) {
-            state.loadRequestId += 1;
-            stopBinanceSocket();
-            state.symbol = coin.symbol;
-            state.source = "binance";
-            setSourceStatus("binance");
-            document.getElementById("pairLabel").textContent = coin.symbol + "/USDT";
-            state.candles = [];
-            if (state.mainChart) {
-              state.mainChart.destroy();
-              state.mainChart = null;
-            }
-            if (state.indicatorChart) {
-              state.indicatorChart.destroy();
-              state.indicatorChart = null;
-            }
-            document.getElementById("currentPrice").textContent = "--";
-            document.getElementById("priceChange").textContent = "--";
-            document.getElementById("candleTimer").textContent = "--:--";
-            errorEl.textContent = "Data pair tidak tersedia di exchange untuk "
-              + coin.name + " (" + coin.symbol + ").";
-            errorEl.style.display = "block";
-            state.candles = [];
-            return;
-          }
           state.symbol = coin.symbol;
           document.getElementById("pairLabel").textContent = coin.symbol + "/"
-            + (state.source === "indodax" ? "IDR" : "USDT");
+            + (state.source === "indodax" ? "IDR"
+              : state.source === "coingecko" ? "USD" : "USDT");
           loadData();
         }
 
@@ -540,7 +520,7 @@ def render_modern_chart(
         };
 
         function priceFormat(value) {
-          const currency = state.source === "binance" ? "USD" : "IDR";
+          const currency = state.source === "indodax" ? "IDR" : "USD";
           return new Intl.NumberFormat("id-ID", {
             style: "currency", currency,
             maximumFractionDigits: currency === "USD" ? 4 : 0
@@ -653,6 +633,40 @@ def render_modern_chart(
           }));
         }
 
+        function normalizeCoinGecko(payload) {
+          if (!payload || !Array.isArray(payload.prices) || !payload.prices.length) {
+            throw new Error("Data harga CoinGecko kosong atau tidak valid.");
+          }
+          const interval = frameSettings[state.timeframe].seconds * 1000;
+          const candlesByTime = new Map();
+          payload.prices.forEach((point, index) => {
+            const timestamp = Number(point && point[0]);
+            const price = Number(point && point[1]);
+            if (!Number.isFinite(timestamp) || !Number.isFinite(price) || price <= 0) return;
+            const bucket = Math.floor(timestamp / interval) * interval;
+            const volumePoint = payload.total_volumes && payload.total_volumes[index];
+            const volume = Number(volumePoint && volumePoint[1]);
+            const candle = candlesByTime.get(bucket);
+            if (candle) {
+              candle.h = Math.max(candle.h, price);
+              candle.l = Math.min(candle.l, price);
+              candle.c = price;
+              if (Number.isFinite(volume) && volume >= 0) candle.v = volume;
+            } else {
+              candlesByTime.set(bucket, {
+                t: bucket, o: price, h: price, l: price, c: price,
+                v: Number.isFinite(volume) && volume >= 0 ? volume : 0,
+                closeAt: bucket + interval
+              });
+            }
+          });
+          const candles = Array.from(candlesByTime.values());
+          if (!candles.length) {
+            throw new Error("Data harga CoinGecko kosong atau tidak valid.");
+          }
+          return candles.map((candle, index) => ({ ...candle, x: index }));
+        }
+
         async function fetchBinance() {
           const settings = frameSettings[state.timeframe];
           const url = "https://api.binance.com/api/v3/klines?symbol="
@@ -684,6 +698,18 @@ def render_modern_chart(
           if (!response.ok) throw new Error("Indodax HTTP " + response.status);
           const candles = normalizeIndodax(await response.json());
           if (!candles.length) throw new Error("Data Indodax kosong atau tidak valid.");
+          return candles;
+        }
+
+        async function fetchCoinGecko() {
+          if (!state.coinId) throw new Error("ID koin CoinGecko tidak tersedia.");
+          const url = "https://api.coingecko.com/api/v3/coins/"
+            + encodeURIComponent(state.coinId)
+            + "/market_chart?vs_currency=usd&days=7";
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("CoinGecko HTTP " + response.status);
+          const candles = normalizeCoinGecko(await response.json());
+          if (!candles.length) throw new Error("Data CoinGecko kosong atau tidak valid.");
           return candles;
         }
 
@@ -1035,6 +1061,7 @@ def render_modern_chart(
             state.candles = await fetchBinance();
           } catch (binanceError) {
             if (requestId !== state.loadRequestId) return;
+            console.warn("Data Binance tidak tersedia; mencoba Indodax:", binanceError);
             state.source = "indodax";
             setSourceStatus("indodax");
             try {
@@ -1042,16 +1069,26 @@ def render_modern_chart(
               document.getElementById("pairLabel").textContent = state.symbol + "/IDR";
             } catch (indodaxError) {
               if (requestId !== state.loadRequestId) return;
-              state.candles = [];
-              errorEl.textContent = "Data pair tidak tersedia di exchange untuk "
-                + state.symbol + "/USDT atau " + state.symbol + "/IDR.";
-              errorEl.style.display = "block";
-              return;
+              console.warn("Data Indodax tidak tersedia; mencoba CoinGecko:", indodaxError);
+              state.source = "coingecko";
+              setSourceStatus("coingecko");
+              try {
+                state.candles = await fetchCoinGecko();
+              } catch (coinGeckoError) {
+                if (requestId !== state.loadRequestId) return;
+                console.error("Data chart tidak tersedia dari Binance, Indodax, maupun CoinGecko:",
+                  { binanceError, indodaxError, coinGeckoError });
+                state.candles = [];
+                errorEl.textContent = "Data pair tidak tersedia di Binance, Indodax, atau CoinGecko untuk "
+                  + state.symbol + ".";
+                errorEl.style.display = "block";
+                return;
+              }
             }
           }
           if (requestId !== state.loadRequestId) return;
-          document.getElementById("pairLabel").textContent =
-            state.source === "binance" ? state.symbol + "/USDT" : state.symbol + "/IDR";
+          document.getElementById("pairLabel").textContent = state.symbol + "/"
+            + (state.source === "indodax" ? "IDR" : state.source === "coingecko" ? "USD" : "USDT");
           renderMainChart();
           renderIndicatorChart();
           updateHeader();

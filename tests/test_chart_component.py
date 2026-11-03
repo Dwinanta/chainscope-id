@@ -18,6 +18,17 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
     assert "ETH/USDT" in html
     assert "https://api.binance.com/api/v3/klines" in html
     assert "https://indodax.com/tradingview/history_v2" in html
+    assert "https://api.coingecko.com/api/v3/coins/" in html
+    assert "/market_chart?vs_currency=usd&days=7" in html
+    assert "function normalizeCoinGecko(payload)" in html
+    assert "function fetchCoinGecko()" in html
+    assert html.index("state.candles = await fetchBinance()") < html.index(
+        "state.candles = await fetchIndodax()"
+    ) < html.index("state.candles = await fetchCoinGecko()")
+    assert html.count("Data pair tidak tersedia di Binance, Indodax, atau CoinGecko") == 1
+    assert html.index("state.candles = await fetchCoinGecko()") < html.index(
+        'errorEl.textContent = "Data pair tidak tersedia di Binance, Indodax, atau CoinGecko'
+    )
     assert 'data-type="candlestick"' in html
     assert "chart.js@latest" in html
     assert "chartjs-chart-financial@0.2.1" in html
