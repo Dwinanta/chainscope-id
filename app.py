@@ -73,7 +73,7 @@ if "user" not in st.session_state or st.session_state.user is None:
             <div class="landing-hero">
                 <div style="font-size:2rem;">⚡</div>
                 <h1>ChainScope ID - Platform Analitik Crypto Terlengkap</h1>
-                <p>Pantau pasar, analisis strategi, dan kelola portofolio kripto Anda.</p>
+                <p>Analisis teknikal dengan RSI dan MA, portofolio otomatis, serta notifikasi Telegram untuk membantu Anda memantau pasar kripto.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -84,7 +84,7 @@ if "user" not in st.session_state or st.session_state.user is None:
             if st.button(
                 "Mulai Gratis",
                 type="primary",
-                use_container_width=True,
+                width='stretch',
                 key="landing_get_started",
             ):
                 st.session_state.show_landing = False
@@ -99,7 +99,7 @@ if "user" not in st.session_state or st.session_state.user is None:
             (
                 "📉",
                 "Analisis Teknikal Interaktif",
-                "Jelajahi grafik dan indikator teknikal untuk membaca tren pasar.",
+                "Analisis pergerakan harga dengan RSI, MA, dan indikator teknikal lainnya.",
             ),
             (
                 "💼",
@@ -127,7 +127,7 @@ if "user" not in st.session_state or st.session_state.user is None:
         pricing_cols = st.columns(2)
         plans = [
             ("Free", "Gratis", "Akses fitur utama untuk mulai memantau pasar."),
-            ("Premium", "Rp 50.000/bulan", "Akses fitur premium untuk analisis lebih lengkap."),
+            ("Premium", "Rp 50.000/bulan", "Akses penuh ke fitur ChainScope ID, laporan PDF, dan alert tanpa batas."),
         ]
         for column, (plan_name, price, description) in zip(pricing_cols, plans):
             with column:
@@ -139,14 +139,14 @@ if "user" not in st.session_state or st.session_state.user is None:
                 if st.button(
                     "Pilih Paket",
                     type="primary",
-                    use_container_width=True,
+                    width='stretch',
                     key=f"landing_plan_{plan_name.lower()}",
                 ):
                     st.session_state.show_landing = False
                     st.rerun()
 
         st.markdown(
-            "<div class='landing-footer'>© 2026 ChainScope ID</div>",
+            "<div class='landing-footer'>© 2026 ChainScope ID. Dibuat untuk trader Indonesia.</div>",
             unsafe_allow_html=True,
         )
     else:
@@ -229,7 +229,7 @@ with st.sidebar:
 
     for url_key, display_name in menu_config.items():
         is_active = (st.session_state.current_page == url_key)
-        if st.button(display_name, use_container_width=True, key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
+        if st.button(display_name, width='stretch', key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
             st.session_state.current_page = url_key
             st.rerun()
 
@@ -279,7 +279,7 @@ if current_page == "market-overview":
             st.markdown(f"### 👤 {user.email}")
             st.markdown(f"**Plan:** {sub_tier}")
             if end_date: st.markdown(f"**Aktif s/d:** {end_date[:10]}")
-            if st.button("🚪 Logout", use_container_width=True, type="primary"): auth.logout_user()
+            if st.button("🚪 Logout", width='stretch', type="primary"): auth.logout_user()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -310,7 +310,7 @@ if current_page == "market-overview":
                     if sparkline_prices:
                         fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
                         fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=60, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
-                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -352,7 +352,7 @@ if current_page == "market-overview":
                     fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
                     fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.08)', line=dict(width=1.5))
                     fig_main.update_layout(margin=dict(l=0, r=0, t=5, b=0), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, tickfont=dict(size=10)), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', tickfont=dict(size=10)))
-                    st.plotly_chart(fig_main, use_container_width=True, config={'displayModeBar': False, 'scrollZoom': True})
+                    st.plotly_chart(fig_main, width='stretch', config={'displayModeBar': False, 'scrollZoom': True})
                 except Exception:
                     st.warning("Riwayat harga koin ini belum tersedia.")
 
@@ -423,7 +423,7 @@ elif current_page == "market-data":
                 ),
             })
             
-            event = st.dataframe(display_df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
+            event = st.dataframe(display_df, width='stretch', hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
             
             if len(event.selection.rows) > 0:
                 selected_idx = event.selection.rows[0]
@@ -453,7 +453,7 @@ elif current_page == "market-data":
                     "Terendah 24j": indodax_df["Low"].map(lambda v: f"Rp {v:,.0f}"),
                     "Volume (IDR)": indodax_df["Volume"].map(lambda v: f"Rp {v:,.0f}"),
                 })
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, width='stretch', hide_index=True)
 
 elif current_page == "relative-strategy":
     st.markdown("<h1>Strategi Relatif</h1>", unsafe_allow_html=True)
@@ -556,7 +556,7 @@ elif current_page == "relative-strategy":
                 with st.container(border=True):
                     st.plotly_chart(
                         fig_ratio,
-                        use_container_width=True,
+                        width='stretch',
                         config={"displayModeBar": False},
                     )
 
@@ -594,7 +594,7 @@ elif current_page == "trading-journal":
                 t_amount = st.number_input("Jumlah Koin", min_value=0.00000001, format="%.8f")
                 t_price = st.number_input("Harga (USD)", min_value=0.01)
                 t_strategy = st.selectbox("Strategi", ["Swing", "Scalping", "Hedge", "Long-term"])
-                if st.form_submit_button("Simpan Transaksi", use_container_width=True):
+                if st.form_submit_button("Simpan Transaksi", width='stretch'):
                     sym = market_df[market_df["id"]==t_coin]["symbol_upper"].values[0]
                     db.add_trade(user.id, t_coin, sym, t_side, t_amount, t_price, str(t_date), strategy_tag=t_strategy)
                     st.success("Transaksi tersimpan!")
@@ -612,7 +612,7 @@ elif current_page == "trading-journal":
                     map_amount = st.selectbox("Kolom Jumlah", df_csv.columns)
                     map_price = st.selectbox("Kolom Harga", df_csv.columns)
                     map_date = st.selectbox("Kolom Tanggal", df_csv.columns)
-                    if st.button("Proses CSV", use_container_width=True):
+                    if st.button("Proses CSV", width='stretch'):
                         success = 0
                         for _, row in df_csv.iterrows():
                             c_id = str(row[map_coin]).lower()
@@ -631,7 +631,7 @@ elif current_page == "trading-journal":
         if trades:
             df_trades = pd.DataFrame(trades)
             df_trades["trade_time"] = pd.to_datetime(df_trades["trade_time"]).dt.date
-            st.dataframe(df_trades[["trade_time", "symbol", "side", "amount", "price_usd"]], use_container_width=True, hide_index=True)
+            st.dataframe(df_trades[["trade_time", "symbol", "side", "amount", "price_usd"]], width='stretch', hide_index=True)
             if st.button("🗑️ Hapus Semua Transaksi", type="secondary"):
                 db.delete_all_user_trades(user.id)
                 st.rerun()
@@ -648,7 +648,7 @@ elif current_page == "price-alerts":
             a_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
             a_cond = c2.selectbox("Kondisi", ["above", "below"])
             a_price = c3.number_input("Target Harga", min_value=0.01)
-            if st.form_submit_button("Tambah Alert", use_container_width=True):
+            if st.form_submit_button("Tambah Alert", width='stretch'):
                 sym = market_df[market_df["id"]==a_coin]["symbol_upper"].values[0]
                 db.add_alert(user.id, a_coin, sym, a_cond, a_price, currency)
                 st.success("Alert dibuat!")
@@ -669,7 +669,7 @@ elif current_page == "price-alerts":
                 }
                 for alert in alerts
             ])
-            st.dataframe(alert_df, use_container_width=True, hide_index=True)
+            st.dataframe(alert_df, width='stretch', hide_index=True)
         else:
             st.info("Belum ada alert aktif.")
 
@@ -724,7 +724,7 @@ elif current_page == "portfolio":
                     "Nilai Kini": pf_df["current_value"].map(lambda v: formatting.format_money(v, currency)),
                     "P&L": pf_df["pnl"].map(lambda v: formatting.format_money(v, currency)),
                 })
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, width='stretch', hide_index=True)
 
             strategy_df = pf_df.groupby("strategy_tag", as_index=False)["current_value"].sum()
             fig = px.pie(
@@ -734,7 +734,7 @@ elif current_page == "portfolio":
                 color_discrete_sequence=["#7c3aed", "#9d5cf5", "#c4a1fa"],
                 title="Alokasi Portofolio per Strategi",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     if user_profile.get("subscription_tier", "free").lower() != "premium":
         if st.button("🚀 Upgrade ke Premium (Rp 50.000)"):
@@ -810,7 +810,7 @@ elif current_page == "watchlist":
             
         if current_watchlist:
             wl_df = market_df[market_df["id"].isin(current_watchlist)].copy()
-            st.dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), use_container_width=True, hide_index=True)
+            st.dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), width='stretch', hide_index=True)
 
 elif current_page == "admin-panel" and is_dev:
     st.markdown("<h1>Admin Panel</h1>", unsafe_allow_html=True)
@@ -824,7 +824,7 @@ elif current_page == "admin-panel" and is_dev:
                 df_users["subscription_end"] = df_users["subscription_end"].fillna("—").str[:10]
                 
             display_cols = ["email", "role", "subscription_tier", "subscription_end"]
-            st.dataframe(df_users[display_cols].rename(columns={"email": "Email", "role": "Role", "subscription_tier": "Plan", "subscription_end": "Berakhir Pada"}), use_container_width=True, hide_index=True)
+            st.dataframe(df_users[display_cols].rename(columns={"email": "Email", "role": "Role", "subscription_tier": "Plan", "subscription_end": "Berakhir Pada"}), width='stretch', hide_index=True)
             
             st.markdown("---")
             st.markdown("### Kelola User")

@@ -62,7 +62,7 @@ def render_modern_chart(
         html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
         body { color: #202334; background: #fff; font: 13px Arial, sans-serif; }
         .terminal { display: flex; flex-direction: column; width: 100%;
-          height: 100vh; min-height: 0; padding: 4px 8px;
+          height: 100vh; height: 100dvh; min-height: 0; padding: 4px 8px;
           background: #fff; overflow: hidden; }
         .toolbar { flex: 0 0 auto; display: flex; min-width: 0; }
         .toolbar-row { display: flex; align-items: center; justify-content: space-between;
@@ -81,11 +81,11 @@ def render_modern_chart(
         .change { margin-left: 4px; color: #10b981; }
         .change.negative { color: #ef4444; }
         .controls { flex: 1 1 auto; justify-content: flex-end; gap: 8px;
-          overflow: visible; }
+          flex-wrap: wrap; overflow: visible; }
         .source-dot { width: 7px; height: 7px; flex: 0 0 7px;
           border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.12); }
         .source-dot.indodax { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.12); }
-        .group { display: flex; align-items: center; flex: 0 1 auto; gap: 1px;
+        .group { display: flex; align-items: center; flex: 0 1 auto; flex-wrap: wrap; gap: 1px;
           min-width: 0; padding: 1px; border-radius: 5px; background: transparent; }
         button { min-height: 21px; padding: 3px 5px; border: 0; border-radius: 4px;
           color: #545064; background: transparent; cursor: pointer; font: inherit; }
@@ -110,12 +110,15 @@ def render_modern_chart(
           color: #545064; font-size: 10px; cursor: pointer; }
         .indicator-menu label:hover { background: #f8f5ff; }
         input { margin: 0; accent-color: #7c3aed; }
-        .charts { display: flex; flex: 1 1 auto; flex-direction: column;
-          min-height: 0; overflow: hidden; padding-top: 3px; }
-        .main-panel { position: relative; flex: 7 1 0; min-height: 0; }
-        .indicator-panel { position: relative; flex: 3 1 0; min-height: 0;
+        .charts { display: flex; flex: 1 1 0; flex-direction: column;
+          width: 100%; max-width: 100%; min-height: 0; overflow: hidden; padding-top: 3px; }
+        .main-panel { position: relative; flex: 7 1 0; width: 100%;
+          max-width: 100%; min-height: 0; }
+        .indicator-panel { position: relative; flex: 3 1 0; width: 100%;
+          max-width: 100%; min-height: 0;
           border-top: 1px solid #ede9fe; padding-top: 4px; }
-        canvas { display: block; width: 100%; height: 100%; }
+        canvas { display: block; width: 100% !important; max-width: 100%;
+          height: 100% !important; }
         .panel-label { position: absolute; z-index: 1; top: 5px; left: 7px;
           color: #6b7280; font-size: 10px; pointer-events: none; }
         .panel-select { position: absolute; z-index: 2; top: 4px; right: 4px;
@@ -157,8 +160,8 @@ def render_modern_chart(
           background: #fff0f0; font-size: 11px; }
         @media (max-width: 620px) {
           .terminal { padding: 3px 4px; }
-          .toolbar-row { gap: 4px; min-height: 28px; }
-          .asset-line { flex: 0 1 auto; gap: 2px; }
+          .toolbar-row { flex-wrap: wrap; gap: 4px; min-height: 28px; }
+          .asset-line { flex: 1 1 100%; gap: 2px; }
           .source-dot { width: 6px; height: 6px; flex-basis: 6px; }
           .pair-button { flex: 0 0 auto; min-height: 23px; gap: 3px; padding: 2px 4px; font-size: 8px; }
           .pair-chevron { width: 10px; height: 10px; }
@@ -167,13 +170,14 @@ def render_modern_chart(
           .price strong { max-width: 42px; min-width: 0; overflow: hidden;
             font-size: 9px; text-overflow: ellipsis; }
           .change { flex: 0 0 auto; margin-left: 0; font-size: 8px; }
-          .controls { flex: 1 1 0; gap: 2px; justify-content: space-between; }
+          .controls { flex: 1 1 100%; width: 100%; gap: 4px;
+            justify-content: flex-start; }
           .indicator-dropdown { flex: 0 0 auto; }
           .indicator-trigger { min-height: 19px; gap: 1px; padding: 2px; font-size: 7px; }
           .indicator-trigger svg { width: 9px; height: 9px; }
           .group { gap: 0; }
           #typeGroup { flex: 0 1 auto; }
-          #timeframeGroup { flex: 1 1 auto; justify-content: space-around; }
+          #timeframeGroup { flex: 1 1 auto; justify-content: flex-start; }
           #typeGroup button, #timeframeGroup button {
             min-width: 0; padding: 2px 2px; font-size: 7px; }
           .candle-timer { min-width: 27px; padding: 1px; font-size: 8px; }

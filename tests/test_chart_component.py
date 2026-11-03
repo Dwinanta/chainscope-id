@@ -43,7 +43,11 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
     assert "hydrateCoinLogo" in html
     assert 'state.symbol.toLowerCase() + "@kline_"' in html
     assert 'height: 100vh' in html
+    assert 'height: 100dvh' in html
     assert 'overflow: hidden' in html
+    assert 'width: 100% !important; max-width: 100%' in html
+    assert '.toolbar-row { flex-wrap: wrap;' in html
+    assert '.controls { flex: 1 1 100%; width: 100%;' in html
     assert 'id="candleTimer"' in html
     assert html.index('id="pairButton"') < html.index('id="candleTimer"')
     assert html.count('class="toolbar-row"') == 1
@@ -80,6 +84,7 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
     assert 'height: 100vh' in html
     assert 'flex: 7 1 0' in html
     assert 'flex: 3 1 0' in html
+    assert html.count('responsive: true, maintainAspectRatio: false') == 2
     assert 'legend: { display: false }' in html
     assert 'overflow: hidden' in html
     assert "relativeStrengthIndex" in html
