@@ -15,7 +15,12 @@ from chainscope import (
 )
 
 # 1. KONFIGURASI HALAMAN
-st.set_page_config(page_title="ChainScope ID", page_icon="📈", layout="wide")
+st.set_page_config(
+    page_title="ChainScope ID",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 ui.apply_premium_theme()
 
 # 2. CEK AUTENTIKASI

@@ -9,7 +9,7 @@ def apply_premium_theme():
     /* 1. Reset Dasar */
     .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
     
-    header[data-testid="stHeader"] { display: none !important; }
+    header[data-testid="stHeader"] { background: transparent !important; }
     
     .block-container {
         padding-top: 0.5rem !important;
@@ -115,6 +115,7 @@ def apply_premium_theme():
             padding: 2.5rem 0.75rem 0.75rem !important;
         }
         [data-testid="stSidebarCollapseButton"],
+        [data-testid="stSidebarCollapsedControl"],
         [data-testid="collapsedControl"] {
             display: flex !important;
             visibility: visible !important;

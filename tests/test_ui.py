@@ -18,7 +18,9 @@ def test_sidebar_navigation_uses_minimal_active_and_inactive_styles(monkeypatch)
     assert "margin-bottom: 4px !important" in css
     assert "@media (max-width: 768px)" in css
     assert '[data-testid="stSidebarCollapseButton"]' in css
+    assert '[data-testid="stSidebarCollapsedControl"]' in css
     assert '[data-testid="collapsedControl"]' in css
+    assert 'header[data-testid="stHeader"] { display: none' not in css
     assert "display: flex !important;" in css
     assert "position: fixed !important;" in css
     assert "max-width: 100vw !important;" in css
