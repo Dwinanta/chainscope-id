@@ -26,3 +26,19 @@ def test_sidebar_navigation_uses_minimal_active_and_inactive_styles(monkeypatch)
     assert "max-width: 100vw !important;" in css
     assert "max-width: 85vw !important;" in css
     assert rendered["options"] == {"unsafe_allow_html": True}
+
+
+def test_apply_dark_theme_uses_dark_background_and_cards(monkeypatch):
+    rendered = {}
+    monkeypatch.setattr(
+        ui.st,
+        "markdown",
+        lambda html, **kwargs: rendered.update(html=html, options=kwargs),
+    )
+
+    ui.apply_dark_theme()
+
+    assert "#0B0E14" in rendered["html"]
+    assert "#F3F4F6" in rendered["html"]
+    assert "#1F2937" in rendered["html"]
+    assert rendered["options"] == {"unsafe_allow_html": True}

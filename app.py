@@ -3,15 +3,18 @@ ChainScope ID - Premium Light Mode (Full Features & Indodax Chart)
 """
 from datetime import datetime, timezone
 from hashlib import sha256
+from html import escape
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+from google.api_core.exceptions import GoogleAPIError
 
 from chainscope import (
     ui, api, auth, compare, config, converter, db, formatting,
-    indicators, journal_calc, report, search, telegram, admin, payment
+    indicators, journal_calc, report, search, telegram, admin, payment,
+    ai_assistant,
 )
 
 # 1. KONFIGURASI HALAMAN
@@ -166,6 +169,8 @@ user_profile = db.get_user_profile(user.id)
 is_dev = user_profile.get("role") == "dev"
 sub_tier = user_profile.get("subscription_tier", "free").title()
 end_date = user_profile.get("subscription_end")
+if "language" not in st.session_state:
+    st.session_state.language = "EN"
 
 # 3. FUNGSI CACHE API
 @st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
@@ -183,6 +188,14 @@ def cached_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.Da
 @st.cache_data(ttl=60, show_spinner=False)
 def cached_indodax_klines(symbol: str, interval: str, limit: int) -> pd.DataFrame:
     return api.fetch_indodax_klines(symbol, interval, limit)
+
+@st.cache_data(ttl=300, show_spinner=False)
+def cached_fear_greed_index() -> dict[str, str]:
+    return api.fetch_fear_greed_index()
+
+@st.cache_data(ttl=300, show_spinner=False)
+def cached_crypto_news() -> list[dict[str, str]]:
+    return api.fetch_crypto_news(limit=5)
 
 @st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
 def cached_usd_currency_rate(currency: str) -> float:
@@ -217,6 +230,18 @@ with st.sidebar:
     
     st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
 
+    language = st.radio(
+        config.translate(st.session_state.language, "Language"),
+        ["ID", "EN"],
+        horizontal=True,
+        key="language",
+    )
+    dark_mode = st.toggle(
+        config.translate(language, "Dark Mode"),
+        value=False,
+        key="dark_mode",
+    )
+
     menu_config = {
         "market-overview": "🏠 Market Overview",
         "market-data": "📊 Market Data",
@@ -234,7 +259,7 @@ with st.sidebar:
 
     for url_key, display_name in menu_config.items():
         is_active = (st.session_state.current_page == url_key)
-        if st.button(display_name, width='stretch', key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
+        if st.button(config.translate(language, display_name), width='stretch', key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
             st.session_state.current_page = url_key
             st.rerun()
 
@@ -244,6 +269,9 @@ with st.sidebar:
         options=list(config.CURRENCY_OPTIONS),
         format_func=lambda code: config.CURRENCY_OPTIONS[code]["label"],
     )
+
+if dark_mode:
+    ui.apply_dark_theme()
 
 current_page = st.session_state.current_page
 
@@ -275,7 +303,10 @@ market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 if current_page == "market-overview":
     col_title, col_search, col_profile = st.columns([2.5, 2, 0.5], vertical_alignment="center")
     with col_title:
-        st.markdown("<h1>Market Overview</h1>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h1>{config.translate(language, 'Market Overview')}</h1>",
+            unsafe_allow_html=True,
+        )
         st.markdown("<p style='font-size:0.9rem; margin-top:5px;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
     with col_search:
         search_query = st.text_input("Search", placeholder="🔍 Search coins...", label_visibility="collapsed")
@@ -316,6 +347,44 @@ if current_page == "market-overview":
                         fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
                         fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=60, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
                         st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+
+    try:
+        fear_greed = cached_fear_greed_index()
+    except api.ChainScopeAPIError as exc:
+        st.warning(f"Fear & Greed Index sementara tidak tersedia: {exc}")
+    else:
+        classification = fear_greed["classification"]
+        normalized_classification = classification.lower()
+        sentiment_color = (
+            "#16834A" if "greed" in normalized_classification
+            else "#D83D50" if "fear" in normalized_classification
+            else "#7c3aed"
+        )
+        st.markdown(
+            "<div style='display:inline-flex; align-items:center; gap:6px; "
+            "padding:8px 12px; margin:4px 0 8px; border:1px solid #e8defc; "
+            "border-radius:10px; background:#fff; color:#171827; font-size:0.9rem;'>"
+            "Fear &amp; Greed: "
+            f"<strong style='color:{sentiment_color};'>"
+            f"{escape(fear_greed['value'])} ({escape(classification)})</strong></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("#### Berita Crypto Terbaru")
+    try:
+        crypto_news = cached_crypto_news()
+    except api.ChainScopeAPIError as exc:
+        st.warning(f"Berita crypto sementara tidak tersedia: {exc}")
+    else:
+        if not crypto_news:
+            st.info("Belum ada berita crypto terbaru.")
+        for article in crypto_news:
+            st.link_button(
+                article["title"],
+                article["url"],
+                help=f"Sumber: {article['source']}",
+            )
+            st.caption(article["source"])
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -374,7 +443,16 @@ if current_page == "market-overview":
             st.markdown(html, unsafe_allow_html=True)
 
 elif current_page == "market-data":
-    st.markdown("<h1>Market Data</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Market Data')}</h1>",
+        unsafe_allow_html=True,
+    )
+    is_free_tier = sub_tier == "Free"
+    free_market_coins = (
+        market_df.sort_values("market_cap", ascending=False, na_position="last").head(10)
+        if is_free_tier else market_df
+    )
+    free_market_symbols = set(free_market_coins["symbol_upper"].dropna())
     
     # Pilihan Sumber Data
     source_choice = st.radio("Pilih Sumber Data:", ["Global (Semua Koin)", "Indodax (Semua Koin IDR)"], horizontal=True)
@@ -385,12 +463,26 @@ elif current_page == "market-data":
     if source_choice == "Global (Semua Koin)":
         # --- LOGIKA COINGECKO (Kode Lama) ---
         with st.container(border=True):
-            coin_options = search.filter_coins(market_df, search_query)
+            coin_options = search.filter_coins(free_market_coins, search_query)
+            has_restricted_matches = False
+            if is_free_tier and search_query.strip():
+                restricted_matches = search.filter_coins(market_df, search_query)
+                restricted_ids = set(restricted_matches["id"])
+                allowed_ids = set(free_market_coins["id"])
+                has_restricted_matches = bool(restricted_ids - allowed_ids)
+                if has_restricted_matches:
+                    st.info("Upgrade ke Premium untuk melihat semua koin.")
             if coin_options.empty:
-                st.info("Tidak ada koin yang cocok dengan pencarian.")
-                table_source = market_df.iloc[0:0]
+                if not has_restricted_matches:
+                    st.info("Tidak ada koin yang cocok dengan pencarian.")
+                table_source = free_market_coins.iloc[0:0]
             else:
                 labels_by_id = dict(zip(coin_options["id"], coin_options["label"]))
+                if (
+                    "market_data_coin_id" in st.session_state
+                    and st.session_state.market_data_coin_id not in labels_by_id
+                ):
+                    del st.session_state.market_data_coin_id
                 market_coin_id = st.selectbox(
                     "Pilih koin untuk analisis",
                     options=coin_options["id"].tolist(),
@@ -404,7 +496,7 @@ elif current_page == "market-data":
                 table_source = (
                     coin_options
                     if search_query.strip()
-                    else coin_options.head(250)
+                    else coin_options.head(10 if is_free_tier else 250)
                 )
             
             display_df = pd.DataFrame({
@@ -448,6 +540,16 @@ elif current_page == "market-data":
             # Filter berdasarkan pencarian
             if search_query:
                 indodax_df = indodax_df[indodax_df["Symbol"].str.contains(search_query.upper(), case=False)]
+            if is_free_tier and search_query.strip():
+                restricted_indodax = indodax_df.loc[
+                    ~indodax_df["Symbol"].astype(str).str.upper().isin(free_market_symbols)
+                ]
+                if not restricted_indodax.empty:
+                    st.info("Upgrade ke Premium untuk melihat semua koin.")
+            if is_free_tier:
+                indodax_df = indodax_df[
+                    indodax_df["Symbol"].astype(str).str.upper().isin(free_market_symbols)
+                ]
                 
             with st.container(border=True):
                 # Format Tabel
@@ -460,8 +562,23 @@ elif current_page == "market-data":
                 })
                 st.dataframe(display_df, width='stretch', hide_index=True)
 
+elif current_page == "relative-strategy" and sub_tier == "Free":
+    st.markdown(
+        f"<h1>{config.translate(language, 'Strategi Relatif')}</h1>",
+        unsafe_allow_html=True,
+    )
+    with st.container(border=True):
+        st.markdown("### Fitur Eksklusif Premium")
+        st.write("Bandingkan pergerakan koin dan analisis rasio dengan fitur Premium.")
+        if st.button("Upgrade Sekarang", type="primary"):
+            st.session_state.current_page = "portfolio"
+            st.rerun()
+
 elif current_page == "relative-strategy":
-    st.markdown("<h1>Strategi Relatif</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Strategi Relatif')}</h1>",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "<p style='color:#77788A;'>Bandingkan pergerakan dua koin berdasarkan rasio harga 30 hari.</p>",
         unsafe_allow_html=True,
@@ -566,9 +683,26 @@ elif current_page == "relative-strategy":
                     )
 
 elif current_page == "technical-analysis":
-    st.markdown("<h1>Technical Analysis</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Technical Analysis')}</h1>",
+        unsafe_allow_html=True,
+    )
     from chainscope.chart_component import render_modern_chart
+    technical_coin_options = market_df.drop_duplicates("id", keep="first")
+    technical_coin_ids = technical_coin_options["id"].tolist()
+    technical_coin_labels = dict(zip(
+        technical_coin_options["id"], technical_coin_options["label"]
+    ))
     selected_coin_id = st.session_state.get("selected_technical_coin", "bitcoin")
+    if selected_coin_id not in technical_coin_labels:
+        selected_coin_id = "bitcoin" if "bitcoin" in technical_coin_labels else technical_coin_ids[0]
+        st.session_state.selected_technical_coin = selected_coin_id
+    selected_coin_id = st.selectbox(
+        "Pilih koin untuk chart dan AI",
+        options=technical_coin_ids,
+        format_func=lambda coin_id: technical_coin_labels[coin_id],
+        key="selected_technical_coin",
+    )
     selected_rows = market_df.loc[market_df["id"] == selected_coin_id]
     selected_symbol = (
         selected_rows.iloc[0]["symbol_upper"] if not selected_rows.empty else "BTCUSDT"
@@ -583,10 +717,48 @@ elif current_page == "technical-analysis":
         selected_symbol,
         coins=chart_coins,
         selected_coin_id=selected_coin_id,
+        allow_coin_selection=False,
+        is_dark_mode=dark_mode,
     )
+    with st.expander("🤖 Tanya AI Assistant", expanded=False):
+        question = st.text_input(
+            "Pertanyaan",
+            placeholder="Apakah bagus beli BTC sekarang?",
+            key="technical_ai_question",
+        )
+        if st.button("Tanya AI", key="technical_ai_ask"):
+            gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
+            if not gemini_api_key:
+                st.warning("API Key Gemini belum diatur")
+            elif not question.strip():
+                st.warning("Masukkan pertanyaan terlebih dahulu.")
+            elif selected_rows.empty:
+                st.error("Data koin aktif tidak tersedia untuk analisis AI.")
+            else:
+                try:
+                    history = cached_price_history(selected_coin_id, "usd", days=7)
+                    snapshot = ai_assistant.build_indicator_snapshot(history)
+                    coin_name = selected_rows.iloc[0]["name"]
+                    prompt = ai_assistant.build_prompt(
+                        snapshot,
+                        question.strip(),
+                        f"{coin_name} ({selected_symbol})",
+                    )
+                    answer = ai_assistant.ask_gemini(gemini_api_key, prompt)
+                except api.ChainScopeAPIError as exc:
+                    st.error(f"Gagal mengambil data indikator: {exc}")
+                except ValueError as exc:
+                    st.error(f"Gagal menyiapkan analisis AI: {exc}")
+                except GoogleAPIError as exc:
+                    st.error(f"Gagal meminta jawaban dari Gemini: {exc}")
+                else:
+                    st.markdown(answer)
 
 elif current_page == "trading-journal":
-    st.markdown("<h1>Trading Journal</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Trading Journal')}</h1>",
+        unsafe_allow_html=True,
+    )
     
     col_manual, col_csv = st.columns(2)
     with col_manual:
@@ -644,20 +816,36 @@ elif current_page == "trading-journal":
             st.info("Belum ada transaksi.")
 
 elif current_page == "price-alerts":
-    st.markdown("<h1>Price Alerts</h1>", unsafe_allow_html=True)
-    
-    with st.container(border=True):
-        st.markdown("#### Buat Alert Baru")
-        with st.form("new_alert", clear_on_submit=True):
-            c1, c2, c3 = st.columns(3)
-            a_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
-            a_cond = c2.selectbox("Kondisi", ["above", "below"])
-            a_price = c3.number_input("Target Harga", min_value=0.01)
-            if st.form_submit_button("Tambah Alert", width='stretch'):
-                sym = market_df[market_df["id"]==a_coin]["symbol_upper"].values[0]
-                db.add_alert(user.id, a_coin, sym, a_cond, a_price, currency)
-                st.success("Alert dibuat!")
-                st.rerun()
+    st.markdown(
+        f"<h1>{config.translate(language, 'Price Alerts')}</h1>",
+        unsafe_allow_html=True,
+    )
+
+    active_alert_count = db.count_user_alerts(user.id) if sub_tier == "Free" else 0
+    if sub_tier == "Free" and active_alert_count >= 1:
+        st.info(
+            "Fitur Alert dibatasi 1 untuk user Free. "
+            "Upgrade ke Premium untuk alert tanpa batas."
+        )
+    else:
+        with st.container(border=True):
+            st.markdown("#### Buat Alert Baru")
+            with st.form("new_alert", clear_on_submit=True):
+                c1, c2, c3 = st.columns(3)
+                a_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
+                a_cond = c2.selectbox("Kondisi", ["above", "below"])
+                a_price = c3.number_input("Target Harga", min_value=0.01)
+                if st.form_submit_button("Tambah Alert", width='stretch'):
+                    if sub_tier == "Free" and db.count_user_alerts(user.id) >= 1:
+                        st.info(
+                            "Fitur Alert dibatasi 1 untuk user Free. "
+                            "Upgrade ke Premium untuk alert tanpa batas."
+                        )
+                    else:
+                        sym = market_df[market_df["id"]==a_coin]["symbol_upper"].values[0]
+                        db.add_alert(user.id, a_coin, sym, a_cond, a_price, currency)
+                        st.success("Alert dibuat!")
+                        st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
     with st.container(border=True):
@@ -679,7 +867,10 @@ elif current_page == "price-alerts":
             st.info("Belum ada alert aktif.")
 
 elif current_page == "pdf-report":
-    st.markdown("<h1>Laporan PDF</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Laporan PDF')}</h1>",
+        unsafe_allow_html=True,
+    )
     st.write("Unduh ringkasan pasar berdasarkan data yang sedang ditampilkan.")
     pdf_bytes = report.build_weekly_report(market_df, currency, data_source)
     st.download_button(
@@ -690,7 +881,10 @@ elif current_page == "pdf-report":
     )
 
 elif current_page == "portfolio":
-    st.markdown("<h1>Portfolio</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Portfolio')}</h1>",
+        unsafe_allow_html=True,
+    )
     trades = db.get_user_trades(user.id)
     
     if not trades:
@@ -780,7 +974,10 @@ elif current_page == "portfolio":
                     st.warning(f"Status pembayaran saat ini: {transaction_status}.")
 
 elif current_page == "converter":
-    st.markdown("<h1>Converter</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Converter')}</h1>",
+        unsafe_allow_html=True,
+    )
     with st.container(border=True):
         try:
             rate = cached_usd_currency_rate(currency)
@@ -800,7 +997,10 @@ elif current_page == "converter":
             st.metric("Hasil", formatting.format_money(res, currency))
 
 elif current_page == "watchlist":
-    st.markdown("<h1>Watchlist</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Watchlist')}</h1>",
+        unsafe_allow_html=True,
+    )
     with st.container(border=True):
         available_ids = market_df["id"].tolist()
         current_watchlist = db.get_user_watchlist(user.id)
@@ -818,7 +1018,10 @@ elif current_page == "watchlist":
             st.dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), width='stretch', hide_index=True)
 
 elif current_page == "admin-panel" and is_dev:
-    st.markdown("<h1>Admin Panel</h1>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h1>{config.translate(language, 'Admin Panel')}</h1>",
+        unsafe_allow_html=True,
+    )
     with st.container(border=True):
         all_users = admin.get_all_users()
         if not all_users:

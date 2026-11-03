@@ -40,6 +40,104 @@ def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
+def fetch_fear_greed_index() -> dict[str, str]:
+    """Fetch the latest Alternative.me Fear & Greed index entry."""
+    try:
+        response = requests.get(
+            "https://api.alternative.me/fng/",
+            params={"limit": 1},
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.exceptions.RequestException as exc:
+        raise ChainScopeAPIError(f"Gagal menghubungi Alternative.me: {exc}") from exc
+    except ValueError as exc:
+        raise ChainScopeAPIError("Respons Fear & Greed bukan JSON yang valid.") from exc
+
+    entries = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(entries, list) or not entries or not isinstance(entries[0], dict):
+        raise ChainScopeAPIError("Alternative.me tidak mengembalikan data Fear & Greed.")
+
+    value = entries[0].get("value")
+    classification = entries[0].get("value_classification")
+    if (
+        not isinstance(value, str)
+        or not value.isdigit()
+        or not isinstance(classification, str)
+        or not classification.strip()
+    ):
+        raise ChainScopeAPIError("Data Fear & Greed tidak sesuai format.")
+    return {"value": value, "classification": classification.strip()}
+
+
+def fetch_crypto_news(limit: int = 5) -> list[dict[str, str]]:
+    """Fetch the latest news from the free cryptocurrency.cv endpoint."""
+    if limit <= 0:
+        raise ValueError("Jumlah berita harus lebih besar dari nol.")
+
+    try:
+        response = requests.get(
+            "https://cryptocurrency.cv/api/news",
+            params={"limit": limit},
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.exceptions.RequestException:
+        raise ChainScopeAPIError("Gagal menghubungi layanan berita crypto.") from None
+    except ValueError as exc:
+        raise ChainScopeAPIError("Respons berita crypto bukan JSON yang valid.") from exc
+
+    if isinstance(payload, list):
+        results = payload
+    elif isinstance(payload, dict):
+        results = next(
+            (
+                payload.get(key)
+                for key in ("news", "articles", "results", "data")
+                if isinstance(payload.get(key), list)
+            ),
+            None,
+        )
+    else:
+        results = None
+    if results is None:
+        raise ChainScopeAPIError("Respons berita crypto tidak sesuai format.")
+
+    news = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        title = item.get("title")
+        url = item.get("url") or item.get("link")
+        source_data = item.get("source") or item.get("provider") or item.get("publisher")
+        if isinstance(source_data, dict):
+            source = (
+                source_data.get("name")
+                or source_data.get("title")
+                or source_data.get("domain")
+            )
+        else:
+            source = source_data or item.get("source_name") or item.get("site")
+        if not isinstance(title, str) or not title.strip():
+            continue
+        if not isinstance(url, str) or not url.strip():
+            continue
+        if not url.startswith(("https://", "http://")):
+            continue
+        if not isinstance(source, str) or not source.strip():
+            source = url.split("/")[2]
+        news.append({
+            "title": title.strip(),
+            "source": source.strip(),
+            "url": url.strip(),
+        })
+        if len(news) == limit:
+            break
+    return news
+
+
 def fetch_all_coins() -> list[dict[str, str]]:
     """Mengambil daftar lengkap koin CoinGecko (id, symbol, dan name)."""
     url = f"{config.API_BASE}/coins/list"

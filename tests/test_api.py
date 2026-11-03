@@ -53,6 +53,95 @@ def test_fetch_market_data_raises_on_network_error(mock_get):
 
 
 @patch("chainscope.api.requests.get")
+def test_fetch_fear_greed_index_returns_latest_entry(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {
+        "data": [{"value": "72", "value_classification": "Greed"}]
+    }
+    mock_get.return_value = mock_resp
+
+    assert api.fetch_fear_greed_index() == {
+        "value": "72",
+        "classification": "Greed",
+    }
+    mock_get.assert_called_once_with(
+        "https://api.alternative.me/fng/",
+        params={"limit": 1},
+        timeout=api.config.REQUEST_TIMEOUT,
+    )
+
+
+@patch("chainscope.api.requests.get")
+def test_fetch_fear_greed_index_rejects_malformed_response(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"data": [{"value": "high"}]}
+    mock_get.return_value = mock_resp
+
+    with pytest.raises(api.ChainScopeAPIError, match="tidak sesuai format"):
+        api.fetch_fear_greed_index()
+
+
+@patch("chainscope.api.requests.get")
+def test_fetch_crypto_news_returns_five_valid_articles(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {
+        "news": [
+            {
+                "title": f"Headline {index}",
+                "source": {"name": "Crypto News"},
+                "url": f"https://example.com/{index}",
+            }
+            for index in range(7)
+        ] + [
+            {
+                "title": "Unsafe link",
+                "source": {"title": "Unknown"},
+                "url": "javascript:alert(1)",
+            }
+        ]
+    }
+    mock_get.return_value = mock_resp
+
+    news = api.fetch_crypto_news()
+
+    assert len(news) == 5
+    assert news[0] == {
+        "title": "Headline 0",
+        "source": "Crypto News",
+        "url": "https://example.com/0",
+    }
+    mock_get.assert_called_once_with(
+        "https://cryptocurrency.cv/api/news",
+        params={"limit": 5},
+        timeout=api.config.REQUEST_TIMEOUT,
+    )
+
+
+@patch("chainscope.api.requests.get")
+def test_fetch_crypto_news_accepts_list_response_and_uses_link_fallback(mock_get):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = [
+        {
+            "title": "Headline",
+            "link": "https://example.com/story",
+        }
+    ]
+    mock_get.return_value = mock_resp
+
+    news = api.fetch_crypto_news()
+
+    assert news == [{
+        "title": "Headline",
+        "source": "example.com",
+        "url": "https://example.com/story",
+    }]
+
+
+@patch("chainscope.api.requests.get")
 def test_fetch_all_coins_returns_coin_identity_fields(mock_get):
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None

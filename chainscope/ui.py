@@ -130,3 +130,57 @@ def apply_premium_theme():
 
     </style>
     """, unsafe_allow_html=True)
+
+
+def apply_dark_theme():
+    st.markdown("""
+    <style>
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background-color: #0B0E14 !important;
+        color: #F3F4F6 !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #11151D !important;
+        border-right-color: #252B36 !important;
+    }
+    header[data-testid="stHeader"] { background: #0B0E14 !important; }
+    .block-container { background-color: #0B0E14 !important; }
+    h1, h2, h3, h4, p, label, [data-testid="stMarkdownContainer"] {
+        color: #F3F4F6 !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"],
+    [data-testid="stExpander"] {
+        background-color: #1F2937 !important;
+        border-color: #2A3140 !important;
+        color: #F3F4F6 !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stSidebar"] .stButton > button {
+        color: #C4C9D4 !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #202633 !important;
+        color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
+        background-color: #35245B !important;
+        color: #D8C7FF !important;
+    }
+    div[data-baseweb="input"],
+    div[data-baseweb="select"] > div,
+    textarea {
+        background-color: #171C26 !important;
+        color: #F3F4F6 !important;
+        border-color: #353D4D !important;
+    }
+    input, textarea { color: #F3F4F6 !important; }
+    div[data-testid="stSegmentedControl"] { background-color: #171C26 !important; }
+    div[data-testid="stSegmentedControl"] button { color: #C4C9D4 !important; }
+    div[data-testid="stSegmentedControl"] button[aria-checked="true"] {
+        background-color: #29213A !important;
+        color: #D8C7FF !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)

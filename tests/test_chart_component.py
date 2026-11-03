@@ -31,6 +31,12 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
     )
     assert 'data-type="candlestick"' in html
     assert "chart.js@latest" in html
+    assert "const IS_DARK_MODE = false;" in html
+    assert "background: #fff" in html
+    assert "__BACKGROUND_COLOR__" not in html
+    assert "__TEXT_COLOR__" not in html
+    assert "__IS_DARK_MODE__" not in html
+    assert "__COIN_SELECTOR_STYLE__" not in html
     assert "chartjs-chart-financial@0.2.1" in html
     assert "chartjs-plugin-zoom@latest" in html
     assert 'id="pairButton"' in html
@@ -134,6 +140,37 @@ def test_render_modern_chart_defaults_to_btcusdt(monkeypatch):
     assert "BTC/USDT" in rendered["html"]
     assert 'const INITIAL_SYMBOL = "BTC"' in rendered["html"]
     assert rendered["options"] == {"height": 600, "scrolling": False}
+
+
+def test_render_modern_chart_can_use_external_coin_selection(monkeypatch):
+    rendered = {}
+    monkeypatch.setattr(
+        chart_component.components,
+        "html",
+        lambda html, **kwargs: rendered.update(html=html, options=kwargs),
+    )
+
+    chart_component.render_modern_chart(allow_coin_selection=False)
+
+    assert ".pair-button, .coin-modal { display: none !important; }" in rendered["html"]
+
+
+def test_render_modern_chart_applies_dark_theme(monkeypatch):
+    rendered = {}
+    monkeypatch.setattr(
+        chart_component.components,
+        "html",
+        lambda html, **kwargs: rendered.update(html=html, options=kwargs),
+    )
+
+    chart_component.render_modern_chart(is_dark_mode=True)
+
+    html = rendered["html"]
+    assert "const IS_DARK_MODE = true;" in html
+    assert "background: #0B0E14" in html
+    assert "grid: IS_DARK_MODE ? \"#303746\"" in html
+    assert "__BACKGROUND_COLOR__" not in html
+    assert "__COIN_SELECTOR_STYLE__" not in html
 
 
 def test_render_modern_chart_embeds_coin_ids_and_logos(monkeypatch):

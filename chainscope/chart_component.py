@@ -11,6 +11,8 @@ def render_modern_chart(
     height: int = 600,
     coins: list[dict[str, str]] | None = None,
     selected_coin_id: str | None = None,
+    allow_coin_selection: bool = True,
+    is_dark_mode: bool = False,
 ) -> None:
     """Render a market chart with indicators, a live price line, and countdown."""
     base_asset = re.sub(r"(USDT|IDR)$", "", symbol.strip().upper())
@@ -60,10 +62,10 @@ def render_modern_chart(
       <style>
         * { box-sizing: border-box; }
         html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-        body { color: #202334; background: #fff; font: 13px Arial, sans-serif; }
+        body { color: __TEXT_COLOR__; background: __BACKGROUND_COLOR__; font: 13px Arial, sans-serif; }
         .terminal { display: flex; flex-direction: column; width: 100%;
           height: 100vh; height: 100dvh; min-height: 0; padding: 4px 8px;
-          background: #fff; overflow: hidden; }
+          background: __BACKGROUND_COLOR__; overflow: hidden; }
         .toolbar { flex: 0 0 auto; display: flex; min-width: 0; }
         .toolbar-row { display: flex; align-items: center; justify-content: space-between;
           gap: 8px; width: 100%; min-width: 0; min-height: 32px; white-space: nowrap; }
@@ -125,6 +127,7 @@ def render_modern_chart(
         .panel-select { position: absolute; z-index: 2; top: 4px; right: 4px;
           padding: 3px 6px; border: 1px solid #ede9fe; border-radius: 4px;
           color: #545064; background: #fff; font: inherit; font-size: 11px; }
+        __COIN_SELECTOR_STYLE__
         .candle-timer { flex: 0 0 auto; min-width: 34px; padding: 2px 3px;
           border: 0; color: #6b7280; background: transparent;
           font: 10px ui-monospace, Consolas, monospace; pointer-events: none; }
@@ -305,6 +308,7 @@ def render_modern_chart(
       </div>
       <script>
         "use strict";
+        const IS_DARK_MODE = __IS_DARK_MODE__;
         const INITIAL_SYMBOL = "__SYMBOL__";
         const INITIAL_COIN_ID = __INITIAL_COIN_ID__;
         const coins = __COINS_JSON__;
@@ -318,8 +322,10 @@ def render_modern_chart(
         const colors = {
           purple: "#7c3aed", purpleFill: "rgba(124,58,237,.12)",
           green: "#10b981", red: "#ef4444", yellow: "#FFB300",
-          blue: "#2962FF", violet: "#7c3aed", grid: "#f3f4f6",
-          muted: "#6b7280", priceUp: "#2962FF", priceDown: "#7c3aed"
+          blue: "#2962FF", violet: "#7c3aed",
+          grid: IS_DARK_MODE ? "#303746" : "#f3f4f6",
+          muted: IS_DARK_MODE ? "#AAB2C0" : "#6b7280",
+          priceUp: "#2962FF", priceDown: "#7c3aed"
         };
         const frameSettings = {
           "1m": { binance: "1m", indodax: "1", seconds: 60 },
@@ -1176,5 +1182,41 @@ def render_modern_chart(
     """.replace("__SYMBOL__", base_asset)
     html_code = html_code.replace("__COINS_JSON__", coin_options_json)
     html_code = html_code.replace("__INITIAL_COIN_ID__", initial_coin_id_json)
+    html_code = html_code.replace("__IS_DARK_MODE__", json.dumps(is_dark_mode))
+    html_code = html_code.replace(
+        "__TEXT_COLOR__", "#F3F4F6" if is_dark_mode else "#202334"
+    )
+    html_code = html_code.replace(
+        "__BACKGROUND_COLOR__", "#0B0E14" if is_dark_mode else "#fff"
+    )
+    if is_dark_mode:
+        html_code = html_code.replace(
+            "__COIN_SELECTOR_STYLE__",
+            """
+            .pair-button, .indicator-trigger, .panel-select, .coin-search,
+            .modal-card, .indicator-menu {
+              color: #E5E7EB; background-color: #171C26; border-color: #303746;
+            }
+            .price, .price strong, .panel-label, .candle-timer,
+            .indicator-menu label, .coin-name strong, .coin-name span {
+              color: #C4C9D4;
+            }
+            .indicator-panel { border-top-color: #303746; }
+            .coin-option:hover, .pair-button:hover, .indicator-trigger:hover,
+            .indicator-menu label:hover { color: #fff; background: #252D3A; }
+            """
+            + (
+                ""
+                if allow_coin_selection
+                else ".pair-button, .coin-modal { display: none !important; }"
+            ),
+        )
+    else:
+        html_code = html_code.replace(
+            "__COIN_SELECTOR_STYLE__",
+            ""
+            if allow_coin_selection
+            else ".pair-button, .coin-modal { display: none !important; }",
+        )
 
     components.html(html_code, height=height, scrolling=False)

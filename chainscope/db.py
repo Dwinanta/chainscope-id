@@ -106,6 +106,18 @@ def add_alert(user_id: str, coin_id: str, symbol: str, condition: str, target_pr
     }
     return supabase.table("alerts").insert(data).execute()
 
+def count_user_alerts(user_id: str) -> int:
+    """Return the number of active alerts belonging to a user."""
+    response = (
+        get_supabase()
+        .table("alerts")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("is_active", True)
+        .execute()
+    )
+    return len(response.data)
+
 def get_user_alerts(user_id: str):
     supabase = get_supabase()
     res = supabase.table("alerts").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
