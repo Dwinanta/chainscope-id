@@ -37,4 +37,7 @@ def test_render_personal_wallet_uses_dark_theme(monkeypatch):
     assert "localStorage.getItem('aturuang_theme') || 'dark'" in rendered["html"]
     assert "background: linear-gradient(135deg, #080B14 0%, #0D1220 50%, #111827 100%);" in rendered["html"]
     assert "background: linear-gradient(145deg, #151B2B 0%, #111827 100%);" in rendered["html"]
+    assert "box-shadow: 0 8px 24px rgba(2, 6, 23, 0.18);" in rendered["html"]
+    assert "borderColor: isDark ? '#151B2B' : '#ffffff'" in rendered["html"]
     assert "__DARK_THEME_STYLE__" not in rendered["html"]
+    assert "__DARK_CHART_BORDER__" not in rendered["html"]

@@ -16,11 +16,15 @@ def _load_personal_wallet_template() -> str:
 def render_personal_wallet(dark_mode: bool = False) -> None:
     """Render the AturUang tracker using the active app theme."""
     html_content = _load_personal_wallet_template()
+    dark_palette = ui.get_theme_palette(is_dark_mode=True)
     theme_name = "dark" if dark_mode else "light"
     html_content = html_content.replace("__INITIAL_THEME__", theme_name)
+    html_content = html_content.replace(
+        "__DARK_CHART_BORDER__", dark_palette["card_background"]
+    )
     dark_theme_style = ""
     if dark_mode:
-        palette = ui.get_theme_palette(is_dark_mode=True)
+        palette = dark_palette
         dark_theme_style = f"""
         html.dark body.bg-slate-50 {{
             background: {palette["main_background_gradient"]};
@@ -30,7 +34,7 @@ def render_personal_wallet(dark_mode: bool = False) -> None:
         html.dark body.bg-slate-50 #deleteModal > div {{
             background: {palette["card_surface"]};
             border-color: {palette["card_border"]};
-            box-shadow: 0 12px 32px rgba(2, 6, 23, 0.24);
+            box-shadow: {palette["card_shadow"]};
         }}
         html.dark body.bg-slate-50 input,
         html.dark body.bg-slate-50 select,

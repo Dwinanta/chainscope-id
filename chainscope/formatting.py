@@ -1,8 +1,16 @@
 """Fungsi format angka untuk tampilan ChainScope ID."""
 
+import html
+import re
+
 import pandas as pd
 
 from chainscope.config import CURRENCY_OPTIONS
+
+
+def clean_html_text(value: str) -> str:
+    """Remove HTML markup and decode entities from untrusted display text."""
+    return html.unescape(re.sub(r"<[^>]*>", "", str(value)))
 
 
 def format_money(value, currency: str) -> str:

@@ -361,7 +361,7 @@ if current_page == "market-overview":
                 st.info("Belum ada berita crypto terbaru.")
             for article in crypto_news:
                 st.link_button(
-                    article["title"],
+                    formatting.clean_html_text(article["title"]),
                     article["url"],
                     help=f"Sumber: {article['source']}",
                 )
@@ -372,23 +372,37 @@ if current_page == "market-overview":
     col_chart, col_movers = st.columns([2.5, 1])
     with col_chart:
         with st.container(border=True):
-            c_t1, c_t2, c_t3 = st.columns([2, 1, 1.5])
-            c_t1.markdown("<p style='font-weight:700; color:var(--cs-primary-text); font-size:1rem; margin-bottom:0;'>Market Chart</p>", unsafe_allow_html=True)
+            st.markdown(
+                "<p style='font-weight:700; color:var(--cs-primary-text); "
+                "font-size:1rem; margin-bottom:0.5rem;'>Market Chart</p>",
+                unsafe_allow_html=True,
+            )
             overview_coins = search.filter_coins(market_df, search_query)
             if overview_coins.empty:
                 st.info("Tidak ada koin yang cocok dengan pencarian.")
             else:
                 labels_by_id = dict(zip(overview_coins["id"], overview_coins["label"]))
-                chart_coin_id = c_t2.selectbox(
-                    "Koin:",
-                    options=overview_coins["id"].tolist(),
-                    format_func=lambda coin_id: labels_by_id[coin_id],
-                    label_visibility="collapsed",
-                    key="overview_coin_id",
+                coin_control, timeframe_control = st.columns(
+                    [1.2, 1], gap="small", vertical_alignment="center"
                 )
+                with coin_control:
+                    chart_coin_id = st.selectbox(
+                        "Koin:",
+                        options=overview_coins["id"].tolist(),
+                        format_func=lambda coin_id: labels_by_id[coin_id],
+                        label_visibility="collapsed",
+                        key="overview_coin_id",
+                    )
 
-                with c_t3:
-                    tf = st.segmented_control("Timeframe", ["1D", "7D", "1M", "1Y"], default="7D", label_visibility="collapsed")
+                with timeframe_control:
+                    tf = st.segmented_control(
+                        "Timeframe",
+                        ["1D", "7D", "1M", "1Y"],
+                        default="7D",
+                        label_visibility="collapsed",
+                        key="overview_timeframe",
+                        width="stretch",
+                    )
                     if not tf:
                         tf = "7D"
 
@@ -408,10 +422,10 @@ if current_page == "market-overview":
                         hist_df,
                         x="waktu",
                         y="price",
-                        color_discrete_sequence=[theme_palette["accent"]],
+                        color_discrete_sequence=[theme_palette["market_chart"]],
                     )
                     fig_main.update_traces(
-                        fillcolor=theme_palette["area_fill"],
+                        fillcolor=theme_palette["market_chart_fill"],
                         line=dict(width=1.5),
                     )
                     ui.apply_plotly_theme(fig_main, dark_mode)
