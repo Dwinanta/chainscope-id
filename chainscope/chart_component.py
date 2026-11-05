@@ -3,7 +3,9 @@
 import json
 import re
 
-import streamlit.components.v1 as components
+import streamlit as st
+
+from chainscope import ui
 
 
 def render_modern_chart(
@@ -62,10 +64,10 @@ def render_modern_chart(
       <style>
         * { box-sizing: border-box; }
         html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-        body { color: __TEXT_COLOR__; background: __BACKGROUND_COLOR__; font: 13px Arial, sans-serif; }
+        body { color: var(--cs-primary-text); background: var(--cs-main-background); font: 13px Arial, sans-serif; }
         .terminal { display: flex; flex-direction: column; width: 100%;
           height: 100vh; height: 100dvh; min-height: 0; padding: 4px 8px;
-          background: __BACKGROUND_COLOR__; overflow: hidden; }
+          background: var(--cs-main-background); overflow: hidden; }
         .toolbar { flex: 0 0 auto; display: flex; min-width: 0; }
         .toolbar-row { display: flex; align-items: center; justify-content: space-between;
           gap: 8px; width: 100%; min-width: 0; min-height: 32px; white-space: nowrap; }
@@ -73,95 +75,95 @@ def render_modern_chart(
           display: flex; align-items: center; min-width: 0; flex-wrap: nowrap; }
         .asset-line { flex: 0 1 auto; gap: 8px; white-space: nowrap; }
         .pair-button { display: inline-flex; align-items: center; gap: 7px;
-          min-height: 27px; padding: 3px 7px; border: 1px solid #e5e7eb;
-          border-radius: 8px; color: #1f2937; background: transparent;
+          min-height: 27px; padding: 3px 7px; border: 1px solid var(--cs-border);
+          border-radius: 8px; color: var(--cs-primary-text); background: var(--cs-input-background);
           font-size: 11px; font-weight: 600; white-space: nowrap; }
-        .pair-button:hover { color: #1f2937; background: #f8f5ff; }
-        .pair-chevron { width: 13px; height: 13px; color: #6b7280; }
-        .price { color: #525568; font-size: 10px; white-space: nowrap; }
-        .price strong { color: #202334; font-size: 12px; }
-        .change { margin-left: 4px; color: #10b981; }
-        .change.negative { color: #ef4444; }
+        .pair-button:hover { color: var(--cs-primary-text); background: var(--cs-main-background); }
+        .pair-chevron { width: 13px; height: 13px; color: var(--cs-secondary-text); }
+        .price { color: var(--cs-secondary-text); font-size: 10px; white-space: nowrap; }
+        .price strong { color: var(--cs-primary-text); font-size: 12px; }
+        .change { margin-left: 4px; color: var(--cs-positive-text); }
+        .change.negative { color: var(--cs-negative-text); }
         .controls { flex: 1 1 auto; justify-content: flex-end; gap: 8px;
           flex-wrap: wrap; overflow: visible; }
         .source-dot { width: 7px; height: 7px; flex: 0 0 7px;
-          border-radius: 50%; background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.12); }
-        .source-dot.indodax { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.12); }
-        .source-dot.coingecko { background: #8b5cf6; box-shadow: 0 0 0 2px rgba(139,92,246,.12); }
+          border-radius: 50%; background: var(--cs-positive); box-shadow: 0 0 0 2px rgba(22,163,74,.12); }
+        .source-dot.indodax { background: var(--cs-negative); box-shadow: 0 0 0 2px rgba(220,38,38,.12); }
+        .source-dot.coingecko { background: var(--cs-accent); box-shadow: 0 0 0 2px rgba(124,58,237,.12); }
         .group { display: flex; align-items: center; flex: 0 1 auto; flex-wrap: wrap; gap: 1px;
           min-width: 0; padding: 1px; border-radius: 5px; background: transparent; }
         button { min-height: 21px; padding: 3px 5px; border: 0; border-radius: 4px;
-          color: #545064; background: transparent; cursor: pointer; font: inherit; }
-        button:hover { color: #7c3aed; }
-        button.active { color: #fff; background: #7c3aed; }
+          color: var(--cs-secondary-text); background: transparent; cursor: pointer; font: inherit; }
+        button:hover { color: var(--cs-accent); }
+        button.active { color: #fff; background: var(--cs-accent); }
         .reset { display: inline-flex; flex: 0 0 auto; align-items: center;
           justify-content: center; width: 24px; min-width: 24px; padding: 2px;
           border: 0; background: transparent; }
         .indicator-dropdown { position: relative; flex: 0 0 auto; }
         .indicator-trigger { display: inline-flex; align-items: center; gap: 5px;
           min-height: 23px; padding: 3px 6px; border: 0;
-          border-radius: 5px; color: #545064; background: transparent; font-size: 10px; }
-        .indicator-trigger:hover { background: #f8f5ff; }
+          border-radius: 5px; color: var(--cs-secondary-text); background: transparent; font-size: 10px; }
+        .indicator-trigger:hover { background: var(--cs-main-background); }
         .indicator-trigger svg { width: 12px; height: 12px; }
         .indicator-menu { position: absolute; z-index: 15; left: 0; top: calc(100% + 5px);
           display: none; min-width: 140px; padding: 6px;
-          border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;
+          border: 1px solid var(--cs-border); border-radius: 8px; background: var(--cs-input-background);
           box-shadow: 0 8px 24px rgba(31,41,55,.14); }
         .indicator-menu.open { display: flex; flex-direction: column; gap: 2px; }
         .indicator-menu label { display: flex; align-items: center; gap: 7px;
           min-height: 25px; padding: 3px 6px; border-radius: 5px;
-          color: #545064; font-size: 10px; cursor: pointer; }
-        .indicator-menu label:hover { background: #f8f5ff; }
-        input { margin: 0; accent-color: #7c3aed; }
+          color: var(--cs-primary-text); font-size: 10px; cursor: pointer; }
+        .indicator-menu label:hover { background: var(--cs-main-background); }
+        input { margin: 0; accent-color: var(--cs-accent); }
         .charts { display: flex; flex: 1 1 0; flex-direction: column;
           width: 100%; max-width: 100%; min-height: 0; overflow: hidden; padding-top: 3px; }
         .main-panel { position: relative; flex: 7 1 0; width: 100%;
           max-width: 100%; min-height: 0; }
         .indicator-panel { position: relative; flex: 3 1 0; width: 100%;
           max-width: 100%; min-height: 0;
-          border-top: 1px solid #ede9fe; padding-top: 4px; }
+          border-top: 1px solid var(--cs-border); padding-top: 4px; }
         canvas { display: block; width: 100% !important; max-width: 100%;
           height: 100% !important; }
         .panel-label { position: absolute; z-index: 1; top: 5px; left: 7px;
-          color: #6b7280; font-size: 10px; pointer-events: none; }
+          color: var(--cs-secondary-text); font-size: 10px; pointer-events: none; }
         .panel-select { position: absolute; z-index: 2; top: 4px; right: 4px;
-          padding: 3px 6px; border: 1px solid #ede9fe; border-radius: 4px;
-          color: #545064; background: #fff; font: inherit; font-size: 11px; }
-        __COIN_SELECTOR_STYLE__
+          padding: 3px 6px; border: 1px solid var(--cs-border); border-radius: 4px;
+          color: var(--cs-primary-text); background: var(--cs-input-background); font: inherit; font-size: 11px; }
+        __THEME_STYLE__
         .candle-timer { flex: 0 0 auto; min-width: 34px; padding: 2px 3px;
-          border: 0; color: #6b7280; background: transparent;
+          border: 0; color: var(--cs-secondary-text); background: transparent;
           font: 10px ui-monospace, Consolas, monospace; pointer-events: none; }
         .coin-modal { position: fixed; z-index: 20; inset: 0; display: none;
           align-items: center; justify-content: center; padding: 16px;
           background: rgba(25,20,40,.38); }
         .coin-modal.open { display: flex; }
         .modal-card { display: flex; flex-direction: column; width: min(390px, 100%);
-          max-height: min(480px, 80vh); overflow: hidden; border: 1px solid #ede9fe;
-          border-radius: 16px; background: #fff; box-shadow: 0 16px 48px rgba(31,41,55,.14); }
+          max-height: min(480px, 80vh); overflow: hidden; border: 1px solid var(--cs-border);
+          border-radius: 16px; background: var(--cs-content-background); box-shadow: 0 16px 48px rgba(15,23,42,.14); }
         .modal-head { display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 16px 10px; color: #1f2937; font-size: 14px; font-weight: 600; }
-        .modal-close { width: 26px; min-height: 26px; padding: 0; color: #747084;
+          padding: 14px 16px 10px; color: var(--cs-primary-text); font-size: 14px; font-weight: 600; }
+        .modal-close { width: 26px; min-height: 26px; padding: 0; color: var(--cs-secondary-text);
           font-size: 18px; }
         .coin-search-wrap { position: relative; margin: 0 14px 10px; }
         .search-icon { position: absolute; top: 50%; left: 10px; width: 15px; height: 15px;
-          color: #9ca3af; transform: translateY(-50%); pointer-events: none; }
+          color: var(--cs-secondary-text); transform: translateY(-50%); pointer-events: none; }
         .coin-search { width: 100%; margin: 0; padding: 9px 10px 9px 33px;
-          border: 1px solid #e5e7eb; border-radius: 8px; outline: none;
-          color: #1f2937; background: #fff; font: inherit; font-size: 12px; }
-        .coin-search:focus { border-color: #7c3aed; }
+          border: 1px solid var(--cs-border); border-radius: 8px; outline: none;
+          color: var(--cs-primary-text); background: var(--cs-input-background); font: inherit; font-size: 12px; }
+        .coin-search:focus { border-color: var(--cs-accent); }
         .coin-list { overflow-y: auto; padding: 0 8px 8px; }
         .coin-option { display: flex; align-items: center; width: 100%; gap: 9px;
           padding: 9px 10px; border-radius: 8px; text-align: left; }
-        .coin-option:hover { color: #1f2937; background: #f8f5ff; }
+        .coin-option:hover { color: var(--cs-primary-text); background: var(--cs-main-background); }
         .coin-logo { width: 24px; height: 24px; flex: 0 0 24px;
-          border-radius: 50%; object-fit: contain; background: #f3f4f6; }
+          border-radius: 50%; object-fit: contain; background: var(--cs-border); }
         .coin-name { display: flex; flex-direction: column; gap: 2px; }
-        .coin-name strong { color: #1f2937; font-size: 12px; font-weight: 600; }
-        .coin-name span { color: #9ca3af; font-size: 11px; }
-        .empty-results { padding: 18px 10px; color: #858195; text-align: center;
+        .coin-name strong { color: var(--cs-primary-text); font-size: 12px; font-weight: 600; }
+        .coin-name span { color: var(--cs-secondary-text); font-size: 11px; }
+        .empty-results { padding: 18px 10px; color: var(--cs-secondary-text); text-align: center;
           font-size: 12px; }
-        .error { display: none; flex: 0 0 auto; padding: 5px 8px; color: #a12626;
-          background: #fff0f0; font-size: 11px; }
+        .error { display: none; flex: 0 0 auto; padding: 5px 8px; color: var(--cs-negative);
+          background: var(--cs-content-background); font-size: 11px; }
         @media (max-width: 620px) {
           .terminal { padding: 3px 4px; }
           .toolbar-row { flex-wrap: wrap; gap: 4px; min-height: 28px; }
@@ -319,14 +321,7 @@ def render_modern_chart(
           socket: null, reconnectTimer: null, countdownTimer: null,
           syncingPan: false, coinId: INITIAL_COIN_ID, loadRequestId: 0
         };
-        const colors = {
-          purple: "#7c3aed", purpleFill: "rgba(124,58,237,.12)",
-          green: "#10b981", red: "#ef4444", yellow: "#FFB300",
-          blue: "#2962FF", violet: "#7c3aed",
-          grid: IS_DARK_MODE ? "#303746" : "#f3f4f6",
-          muted: IS_DARK_MODE ? "#AAB2C0" : "#6b7280",
-          priceUp: "#2962FF", priceDown: "#7c3aed"
-        };
+        const colors = __CHART_COLORS__;
         const frameSettings = {
           "1m": { binance: "1m", indodax: "1", seconds: 60 },
           "5m": { binance: "5m", indodax: "5", seconds: 300 },
@@ -826,25 +821,32 @@ def render_modern_chart(
               parsing: false, interaction: { mode: "index", intersect: false },
               plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: {
-                  title(items) {
-                    return items.length
-                      ? new Date(candles[items[0].dataIndex].t).toLocaleString()
-                      : "";
-                  },
-                  label(context) {
-                    if (context.dataset.type === "candlestick") {
-                      const candle = context.raw;
-                      return [
-                        "Open " + priceFormat(candle.o),
-                        "High " + priceFormat(candle.h),
-                        "Low " + priceFormat(candle.l),
-                        "Close " + priceFormat(candle.c)
-                      ];
+                tooltip: {
+                  backgroundColor: colors.tooltipBackground,
+                  titleColor: colors.tooltipText,
+                  bodyColor: colors.tooltipText,
+                  borderColor: colors.grid,
+                  borderWidth: 1,
+                  callbacks: {
+                    title(items) {
+                      return items.length
+                        ? new Date(candles[items[0].dataIndex].t).toLocaleString()
+                        : "";
+                    },
+                    label(context) {
+                      if (context.dataset.type === "candlestick") {
+                        const candle = context.raw;
+                        return [
+                          "Open " + priceFormat(candle.o),
+                          "High " + priceFormat(candle.h),
+                          "Low " + priceFormat(candle.l),
+                          "Close " + priceFormat(candle.c)
+                        ];
+                      }
+                      return context.dataset.label + ": " + priceFormat(context.parsed.y);
                     }
-                    return context.dataset.label + ": " + priceFormat(context.parsed.y);
                   }
-                } },
+                },
                 zoom: zoomOptions()
               },
               scales: {
@@ -874,11 +876,11 @@ def render_modern_chart(
                 borderColor: colors.muted, borderWidth: 1.5, pointRadius: 0, fill: false },
               { type: "line", label: "Overbought",
                 data: labels.map((x) => ({ x, y: 70 })),
-                borderColor: "rgba(239,68,68,.45)", borderDash: [4, 4],
+                borderColor: colors.redLine, borderDash: [4, 4],
                 borderWidth: 1, pointRadius: 0 },
               { type: "line", label: "Oversold",
                 data: labels.map((x) => ({ x, y: 30 })),
-                borderColor: "rgba(16,185,129,.45)", borderDash: [4, 4],
+                borderColor: colors.greenLine, borderDash: [4, 4],
                 borderWidth: 1, pointRadius: 0 }
             ];
           }
@@ -889,11 +891,11 @@ def render_modern_chart(
                 borderColor: colors.violet, borderWidth: 1.5, pointRadius: 0, fill: false },
               { type: "line", label: "Overbought",
                 data: labels.map((x) => ({ x, y: 80 })),
-                borderColor: "rgba(239,68,68,.45)", borderDash: [4, 4],
+                borderColor: colors.redLine, borderDash: [4, 4],
                 borderWidth: 1, pointRadius: 0 },
               { type: "line", label: "Oversold",
                 data: labels.map((x) => ({ x, y: 20 })),
-                borderColor: "rgba(16,185,129,.45)", borderDash: [4, 4],
+                borderColor: colors.greenLine, borderDash: [4, 4],
                 borderWidth: 1, pointRadius: 0 }
             ];
           }
@@ -901,7 +903,7 @@ def render_modern_chart(
             type: "bar", label: "Volume",
             data: state.candles.map((item) => ({ x: item.x, y: item.v })),
             backgroundColor: state.candles.map((item) =>
-              item.c >= item.o ? "rgba(16,185,129,.65)" : "rgba(239,68,68,.65)"),
+              item.c >= item.o ? colors.greenFill : colors.redFill),
             borderSkipped: false, barPercentage: .9, categoryPercentage: 1
           }];
         }
@@ -919,7 +921,14 @@ def render_modern_chart(
               parsing: false, interaction: { mode: "index", intersect: false },
               plugins: {
                 legend: { display: false },
-                tooltip: { enabled: true },
+                tooltip: {
+                  enabled: true,
+                  backgroundColor: colors.tooltipBackground,
+                  titleColor: colors.tooltipText,
+                  bodyColor: colors.tooltipText,
+                  borderColor: colors.grid,
+                  borderWidth: 1
+                },
                 zoom: zoomOptions()
               },
               scales: {
@@ -1183,40 +1192,81 @@ def render_modern_chart(
     html_code = html_code.replace("__COINS_JSON__", coin_options_json)
     html_code = html_code.replace("__INITIAL_COIN_ID__", initial_coin_id_json)
     html_code = html_code.replace("__IS_DARK_MODE__", json.dumps(is_dark_mode))
-    html_code = html_code.replace(
-        "__TEXT_COLOR__", "#F3F4F6" if is_dark_mode else "#202334"
+    palette = ui.get_theme_palette(is_dark_mode)
+    chart_colors = {
+        "purple": palette["accent"],
+        "purpleFill": palette["accent_fill"],
+        "green": palette["positive"],
+        "red": palette["negative"],
+        "yellow": palette["warning"],
+        "blue": palette["info"],
+        "violet": palette["accent"],
+        "grid": palette.get("chart_grid", palette["border"]),
+        "muted": palette["secondary_text"],
+        "tooltipBackground": palette["input_background"],
+        "tooltipText": palette["primary_text"],
+        "priceUp": palette["positive"],
+        "priceDown": palette["negative"],
+        "greenFill": palette["positive_fill"],
+        "redFill": palette["negative_fill"],
+        "greenLine": palette["positive_line"],
+        "redLine": palette["negative_line"],
+    }
+    chart_colors_json = json.dumps(chart_colors, ensure_ascii=True).replace(
+        "</", "<\\/"
     )
-    html_code = html_code.replace(
-        "__BACKGROUND_COLOR__", "#0B0E14" if is_dark_mode else "#fff"
-    )
+    theme_style = f"""
+        :root {{
+          color-scheme: {"dark" if is_dark_mode else "light"};
+          --cs-main-background: {palette.get("main_background_gradient", palette["main_background"])};
+          --cs-plot-area-background: {palette.get("chart_area_background", palette["content_background"])};
+          --cs-content-background: {palette["content_background"]};
+          --cs-primary-text: {palette["primary_text"]};
+          --cs-secondary-text: {palette["secondary_text"]};
+          --cs-border: {palette["border"]};
+          --cs-accent: {palette["accent"]};
+          --cs-input-background: {palette["input_background"]};
+          --cs-positive: {palette["positive"]};
+          --cs-positive-text: {palette["positive_text"]};
+          --cs-negative: {palette["negative"]};
+          --cs-negative-text: {palette["negative_text"]};
+        }}
+        body, .terminal {{ color: var(--cs-primary-text); background: var(--cs-main-background); }}
+        .pair-button, .indicator-trigger, .panel-select, .coin-search,
+        .modal-card, .indicator-menu {{
+          color: var(--cs-primary-text); background: var(--cs-input-background);
+          border-color: var(--cs-border);
+        }}
+        .pair-button, .indicator-trigger {{ border: 1px solid var(--cs-border); }}
+        .price, .panel-label, .candle-timer, .coin-name span,
+        .pair-chevron, .search-icon, .empty-results {{ color: var(--cs-secondary-text); }}
+        .price strong, .modal-head, .coin-name strong {{ color: var(--cs-primary-text); }}
+        .indicator-menu label {{ color: var(--cs-primary-text); }}
+        .indicator-panel {{ border-top-color: var(--cs-border); }}
+        .coin-option:hover, .pair-button:hover, .indicator-trigger:hover,
+        .indicator-menu label:hover {{ color: var(--cs-primary-text); background: var(--cs-main-background); }}
+        .coin-logo {{ background: var(--cs-border); }}
+        .coin-search:focus {{ border-color: var(--cs-accent); }}
+        .change {{ color: var(--cs-positive); }}
+        .change.negative {{ color: var(--cs-negative); }}
+        .source-dot {{ background: var(--cs-positive); }}
+        .source-dot.indodax {{ background: var(--cs-negative); }}
+        .source-dot.coingecko {{ background: var(--cs-accent); }}
+        input {{ color: var(--cs-primary-text); accent-color: var(--cs-accent); }}
+        .error {{ color: var(--cs-negative); background: var(--cs-content-background); }}
+        .modal-close {{ color: var(--cs-secondary-text); }}
+        """
     if is_dark_mode:
-        html_code = html_code.replace(
-            "__COIN_SELECTOR_STYLE__",
-            """
-            .pair-button, .indicator-trigger, .panel-select, .coin-search,
-            .modal-card, .indicator-menu {
-              color: #E5E7EB; background-color: #171C26; border-color: #303746;
-            }
-            .price, .price strong, .panel-label, .candle-timer,
-            .indicator-menu label, .coin-name strong, .coin-name span {
-              color: #C4C9D4;
-            }
-            .indicator-panel { border-top-color: #303746; }
-            .coin-option:hover, .pair-button:hover, .indicator-trigger:hover,
-            .indicator-menu label:hover { color: #fff; background: #252D3A; }
-            """
-            + (
-                ""
-                if allow_coin_selection
-                else ".pair-button, .coin-modal { display: none !important; }"
-            ),
-        )
-    else:
-        html_code = html_code.replace(
-            "__COIN_SELECTOR_STYLE__",
-            ""
-            if allow_coin_selection
-            else ".pair-button, .coin-modal { display: none !important; }",
-        )
+        theme_style += """
+        .charts { background: var(--cs-plot-area-background); }
+        """
+    if not allow_coin_selection:
+        theme_style += ".pair-button, .coin-modal { display: none !important; }"
+    html_code = html_code.replace("__CHART_COLORS__", chart_colors_json)
+    html_code = html_code.replace("__THEME_STYLE__", theme_style)
 
-    components.html(html_code, height=height, scrolling=False)
+    st.iframe(
+        html_code,
+        height=height,
+        alt="Interactive cryptocurrency market chart",
+    )

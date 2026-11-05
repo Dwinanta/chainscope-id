@@ -1,186 +1,537 @@
-"""Modul UI Premium (Logo ke Atas, Tombol Panah Tetap)."""
+"""Shared theme tokens and styling for the ChainScope Streamlit UI."""
+
 import streamlit as st
 
-def apply_premium_theme():
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    
-    /* 1. Reset Dasar */
-    .stApp { background-color: #F8F7FC !important; font-family: 'Inter', sans-serif !important; }
-    
-    header[data-testid="stHeader"] { background: transparent !important; }
-    
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0rem !important;
-        margin-top: 0rem !important;
-        max-width: 100% !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-    }
-    ::-webkit-scrollbar { display: none !important; }
 
-    /* 2. SIDEBAR */
-    [data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
-        border-right: 1px solid #E9E6F0 !important;
-    }
-    
-    /* TOMBOL PANAH (HIDE/SHOW) */
-    [data-testid="stSidebarCollapseButton"] { display: flex !important; opacity: 1 !important; }
-    [data-testid="collapsedControl"] { 
-        display: flex !important; visibility: visible !important; opacity: 1 !important; 
-        z-index: 9999 !important; background-color: #FFFFFF !important; 
-        border: 1px solid #E9E6F0 !important; border-radius: 8px !important; 
-        padding: 5px !important; top: 20px !important; left: 20px !important; 
-    }
-    
-    /* JANGAN TARIK SIDEBAR, TARIK LOGONYA SAJA */
-    [data-testid="stSidebar"] > div:first-child { 
-        padding-top: 0rem !important; 
-        margin-top: 0rem !important; 
-    }
-    
-    /* Hilangkan Scrollbar Sidebar */
-    [data-testid="stSidebar"]::-webkit-scrollbar { display: none !important; }
-    [data-testid="stSidebar"] { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-    
-    /* Jarak antar tombol menu */
-    [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] { gap: 0 !important; }
+_THEMES = {
+    "light": {
+        "main_background": "#F8FAFC",
+        "content_background": "#FFFFFF",
+        "sidebar_background": "#F1F5F9",
+        "primary_text": "#0F172A",
+        "secondary_text": "#475569",
+        "border": "#CBD5E1",
+        "accent": "#7C3AED",
+        "accent_fill": "rgba(124,58,237,.12)",
+        "area_fill": "rgba(124,58,237,.10)",
+        "accent_secondary": "#9D5CF5",
+        "accent_tertiary": "#C4A1FA",
+        "input_background": "#FFFFFF",
+        "card_background": "#FFFFFF",
+        "card_surface": "#FFFFFF",
+        "card_radius": "10px",
+        "card_shadow": "none",
+        "positive": "#16A34A",
+        "positive_text": "#15803D",
+        "positive_fill": "rgba(22,163,74,.65)",
+        "positive_line": "rgba(22,163,74,.45)",
+        "negative": "#DC2626",
+        "negative_text": "#B91C1C",
+        "negative_fill": "rgba(220,38,38,.65)",
+        "negative_line": "rgba(220,38,38,.45)",
+        "warning": "#F59E0B",
+        "warning_text": "#B45309",
+        "info": "#3B82F6",
+        "info_text": "#1D4ED8",
+        "hover": "#F1F5F9",
+        "active": "#EDE9FE",
+        "active_text": "#6D28D9",
+        "grid": "#CBD5E1",
+        "plotly_template": "plotly_white",
+    },
+    "dark": {
+        "main_background": "#0B1120",
+        "main_background_gradient": (
+            "linear-gradient(135deg, #080B14 0%, #0D1220 50%, #111827 100%)"
+        ),
+        "content_background": "#111827",
+        "sidebar_background": "#0F172A",
+        "sidebar_background_gradient": (
+            "linear-gradient(180deg, #0B1020 0%, #111827 55%, #17132B 100%)"
+        ),
+        "card_border": "rgba(167, 139, 250, 0.18)",
+        "card_surface": (
+            "linear-gradient(145deg, #151B2B 0%, #111827 100%)"
+        ),
+        "card_radius": "12px",
+        "card_shadow": "0 8px 24px rgba(2, 6, 23, 0.18)",
+        "chart_area_background": "#111827",
+        "chart_grid": "rgba(148, 163, 184, 0.12)",
+        "primary_text": "#F8FAFC",
+        "secondary_text": "#CBD5E1",
+        "border": "#334155",
+        "accent": "#A78BFA",
+        "accent_fill": "rgba(167,139,250,.12)",
+        "area_fill": "rgba(167,139,250,.12)",
+        "accent_secondary": "#C4B5FD",
+        "accent_tertiary": "#DDD6FE",
+        "input_background": "#1E293B",
+        "card_background": "#111827",
+        "positive": "#16A34A",
+        "positive_text": "#4ADE80",
+        "positive_fill": "rgba(22,163,74,.65)",
+        "positive_line": "rgba(22,163,74,.45)",
+        "negative": "#DC2626",
+        "negative_text": "#F87171",
+        "negative_fill": "rgba(220,38,38,.65)",
+        "negative_line": "rgba(220,38,38,.45)",
+        "warning": "#F59E0B",
+        "warning_text": "#FBBF24",
+        "info": "#3B82F6",
+        "info_text": "#60A5FA",
+        "hover": "#1E293B",
+        "active": "#312E81",
+        "active_text": "#DDD6FE",
+        "grid": "#334155",
+        "plotly_template": "plotly_dark",
+    },
+}
 
-    /* 3. LOGO & MENU */
-    .logo-container {
-        display: flex; align-items: center; gap: 8px; 
-        /* TARIK LOGO KE ATAS MELEWATI HEADER */
-        margin-top: -3.5rem !important; 
-        margin-bottom: 1.5rem !important; /* Jarak bawah ke menu */
-        padding-left: 10px;
-        position: relative;
-        z-index: 10;
-    }
-    
-    [data-testid="stSidebar"] .stButton > button {
-        background-color: transparent !important; border: none !important;
-        color: #77788A !important; font-weight: 500 !important;
-        text-align: left !important; justify-content: flex-start !important;
-        padding: 6px 12px !important; border-radius: 6px !important;
-        font-size: 0.9rem !important; box-shadow: none !important;
-        min-height: 34px !important; margin-bottom: 4px !important;
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #F8F7FC !important; color: #171827 !important;
-    }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background-color: #f0e9ff !important; color: #7c3aed !important;
-        font-weight: 600 !important; border: none !important; box-shadow: none !important;
-    }
 
-    /* 4. KONTEN UTAMA */
-    div[data-baseweb="input"] { background-color: #FFFFFF !important; border-radius: 20px !important; border: 1px solid #E9E6F0 !important; padding: 2px 10px !important; }
-    div[data-baseweb="input"] input { color: #171827 !important; }
-    
-    div[data-testid="stSegmentedControl"] { background-color: #F8F7FC !important; padding: 4px; border-radius: 8px; }
-    div[data-testid="stSegmentedControl"] button { color: #77788A !important; border: none !important; }
-    div[data-testid="stSegmentedControl"] button[aria-checked="true"] { background-color: #FFFFFF !important; color: #6C35D9 !important; border-radius: 6px !important; font-weight: 700 !important; }
+def get_theme_palette(is_dark_mode: bool = False) -> dict[str, str]:
+    """Return a copy of the active semantic color palette."""
+    return dict(_THEMES["dark" if is_dark_mode else "light"])
 
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #FFFFFF !important; border-radius: 16px !important;
-        border: 1px solid #E9E6F0 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
-        padding: 15px !important;
-    }
 
-    h1 { color: #171827 !important; font-weight: 800 !important; font-size: 1.8rem !important; }
-    h2 { color: #171827 !important; font-weight: 800 !important; font-size: 1.4rem !important; }
-    .text-green { color: #16834A !important; font-weight: 700; }
-    .text-red { color: #D83D50 !important; font-weight: 700; }
+def apply_plotly_theme(figure, is_dark_mode: bool = False):
+    """Apply the active theme to a Plotly figure without hiding its traces."""
+    palette = get_theme_palette(is_dark_mode)
+    plot_background = (
+        palette["chart_area_background"]
+        if is_dark_mode
+        else "rgba(0,0,0,0)"
+    )
+    grid_color = palette.get("chart_grid", palette["grid"])
+    figure.update_layout(
+        template=palette["plotly_template"],
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor=plot_background,
+        font={"color": palette["primary_text"]},
+        legend={"font": {"color": palette["primary_text"]}},
+        xaxis={
+            "gridcolor": grid_color,
+            "linecolor": palette["border"],
+            "tickfont": {"color": palette["secondary_text"]},
+            "title_font": {"color": palette["secondary_text"]},
+        },
+        yaxis={
+            "gridcolor": grid_color,
+            "linecolor": palette["border"],
+            "tickfont": {"color": palette["secondary_text"]},
+            "title_font": {"color": palette["secondary_text"]},
+        },
+    )
+    return figure
 
-    @media (max-width: 768px) {
-        .block-container {
-            width: 100% !important;
-            max-width: 100vw !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-            box-sizing: border-box !important;
+
+def style_dataframe(dataframe, is_dark_mode: bool = False):
+    """Style dataframe cells explicitly so tables follow runtime theme changes."""
+    palette = get_theme_palette(is_dark_mode)
+    return dataframe.style.set_properties(
+        **{
+            "background-color": palette["content_background"],
+            "color": palette["primary_text"],
+            "border-color": palette["border"],
         }
-        [data-testid="stMain"] {
-            max-width: 100vw !important;
-            overflow-x: hidden !important;
-        }
-        [data-testid="stSidebar"] {
-            max-width: 85vw !important;
-            box-sizing: border-box !important;
-        }
-        [data-testid="stSidebar"] > div:first-child {
-            padding: 2.5rem 0.75rem 0.75rem !important;
-        }
+    ).set_table_styles(
+        [
+            {
+                "selector": "th",
+                "props": [
+                    ("background-color", palette["sidebar_background"]),
+                    ("color", palette["primary_text"]),
+                    ("border-color", palette["border"]),
+                ],
+            },
+            {
+                "selector": "td",
+                "props": [
+                    ("background-color", palette["content_background"]),
+                    ("color", palette["primary_text"]),
+                    ("border-color", palette["border"]),
+                ],
+            },
+        ],
+        overwrite=False,
+    )
+
+
+def apply_theme(is_dark_mode: bool = False) -> None:
+    """Apply the centralized light or dark theme to the current Streamlit run."""
+    palette = get_theme_palette(is_dark_mode)
+    app_background = (
+        palette["main_background_gradient"]
+        if is_dark_mode
+        else palette["main_background"]
+    )
+    sidebar_surface = (
+        palette["sidebar_background_gradient"]
+        if is_dark_mode
+        else palette["sidebar_background"]
+    )
+    css_variables = "\n".join(
+        f"        --cs-{name.replace('_', '-')}: {value};"
+        for name, value in palette.items()
+        if name != "plotly_template"
+    )
+    css_variables += f"\n        --cs-sidebar-surface: {sidebar_surface};"
+    st.markdown(
+        f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {{
+            color-scheme: {"dark" if is_dark_mode else "light"};
+{css_variables}
+        }}
+
+        .stApp {{
+            background: {app_background} !important;
+            background-attachment: fixed;
+        }}
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        [data-testid="stMainBlockContainer"] {{
+            background: transparent;
+            color: var(--cs-primary-text);
+            font-family: 'Inter', sans-serif;
+        }}
+        [data-testid="stHeader"],
+        [data-testid="stToolbar"] {{ background: transparent; }}
+        .block-container {{
+            max-width: 100%;
+            padding: 0.5rem 2rem 0;
+        }}
+
+        [data-testid="stSidebar"] {{
+            background: var(--cs-sidebar-surface);
+            border-right: 1px solid var(--cs-border);
+        }}
+        [data-testid="stSidebar"] > div,
+        [data-testid="stSidebar"] section {{
+            background: transparent;
+        }}
+        [data-testid="stSidebar"] > div:first-child {{
+            padding-top: 0;
+            margin-top: 0;
+        }}
         [data-testid="stSidebarCollapseButton"],
         [data-testid="stSidebarCollapsedControl"],
-        [data-testid="collapsedControl"] {
-            display: flex !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: fixed !important;
-            top: 10px !important;
-            left: 10px !important;
-            z-index: 9999 !important;
-        }
-        .logo-container { margin-top: 0.5rem !important; }
-    }
+        [data-testid="collapsedControl"] {{
+            color: var(--cs-primary-text);
+            background: var(--cs-sidebar-surface);
+            border: 1px solid var(--cs-border);
+            border-radius: 8px;
+        }}
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{ gap: 0; }}
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] {{
+            margin-top: -0.5rem;
+        }}
+        .logo-container {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            z-index: 10;
+            margin: -3.5rem 0 1.5rem;
+            padding-left: 10px;
+        }}
+        [data-testid="stSidebar"] [data-testid="stButton"] > button {{
+            justify-content: flex-start;
+            min-height: 34px;
+            margin-bottom: 4px;
+            padding: 6px 12px;
+            border: 0;
+            border-radius: 6px;
+            color: var(--cs-secondary-text);
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: left;
+            box-shadow: none;
+        }}
+        [data-testid="stSidebar"] [data-testid="stButton"] > button:hover {{
+            color: var(--cs-primary-text);
+            background: var(--cs-hover);
+        }}
+        [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
+            color: var(--cs-active-text);
+            background: var(--cs-active);
+            font-weight: 600;
+        }}
 
-    </style>
-    """, unsafe_allow_html=True)
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+        .stApp p, .stApp li, .stApp label,
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stWidgetLabel"],
+        [data-testid="stCaptionContainer"],
+        [data-testid="stMetricLabel"],
+        [data-testid="stMetricValue"] {{
+            color: var(--cs-primary-text);
+        }}
+        [data-testid="stCaptionContainer"] {{ color: var(--cs-secondary-text); }}
+        .stApp a, [data-testid="stLinkButton"] a {{ color: var(--cs-accent); }}
+        .text-green {{ color: var(--cs-positive-text); font-weight: 700; }}
+        .text-red {{ color: var(--cs-negative-text); font-weight: 700; }}
 
+        [data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stForm"],
+        [data-testid="stExpander"],
+        [data-testid="stPopover"],
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {{
+            color: var(--cs-primary-text);
+            background: var(--cs-card-background);
+            border-color: var(--cs-border);
+            border-radius: 12px;
+        }}
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        }}
 
-def apply_dark_theme():
-    st.markdown("""
-    <style>
-    .stApp,
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"] {
-        background-color: #0B0E14 !important;
-        color: #F3F4F6 !important;
-    }
-    [data-testid="stSidebar"] {
-        background-color: #11151D !important;
-        border-right-color: #252B36 !important;
-    }
-    header[data-testid="stHeader"] { background: #0B0E14 !important; }
-    .block-container { background-color: #0B0E14 !important; }
-    h1, h2, h3, h4, p, label, [data-testid="stMarkdownContainer"] {
-        color: #F3F4F6 !important;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"],
-    [data-testid="stExpander"] {
-        background-color: #1F2937 !important;
-        border-color: #2A3140 !important;
-        color: #F3F4F6 !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stSidebar"] .stButton > button {
-        color: #C4C9D4 !important;
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #202633 !important;
-        color: #FFFFFF !important;
-    }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background-color: #35245B !important;
-        color: #D8C7FF !important;
-    }
-    div[data-baseweb="input"],
-    div[data-baseweb="select"] > div,
-    textarea {
-        background-color: #171C26 !important;
-        color: #F3F4F6 !important;
-        border-color: #353D4D !important;
-    }
-    input, textarea { color: #F3F4F6 !important; }
-    div[data-testid="stSegmentedControl"] { background-color: #171C26 !important; }
-    div[data-testid="stSegmentedControl"] button { color: #C4C9D4 !important; }
-    div[data-testid="stSegmentedControl"] button[aria-checked="true"] {
-        background-color: #29213A !important;
-        color: #D8C7FF !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        [data-testid="stTextInput"] input,
+        [data-testid="stNumberInput"] input,
+        [data-testid="stDateInput"] input,
+        [data-testid="stTimeInput"] input,
+        [data-testid="stTextArea"] textarea,
+        [data-baseweb="input"] input,
+        [data-baseweb="textarea"] textarea,
+        [data-baseweb="select"] > div {{
+            color: var(--cs-primary-text);
+            background: var(--cs-input-background);
+            border-color: var(--cs-border);
+        }}
+        [data-testid="stTextInput"] input::placeholder,
+        [data-testid="stNumberInput"] input::placeholder,
+        [data-testid="stTextArea"] textarea::placeholder,
+        [data-baseweb="input"] input::placeholder,
+        [data-baseweb="textarea"] textarea::placeholder {{
+            color: var(--cs-secondary-text);
+            opacity: 1;
+        }}
+        [data-baseweb="popover"],
+        [data-baseweb="menu"],
+        [data-testid="stPopoverBody"],
+        [role="listbox"],
+        [role="option"] {{
+            color: var(--cs-primary-text);
+            background: var(--cs-content-background);
+            border-color: var(--cs-border);
+        }}
+        [role="option"]:hover {{ background: var(--cs-hover); }}
+        [data-baseweb="tag"] {{
+            color: var(--cs-active-text);
+            background: var(--cs-active);
+            border-color: var(--cs-border);
+        }}
+        input[type="checkbox"], input[type="radio"] {{ accent-color: var(--cs-accent); }}
+        [data-testid="stTabs"] [role="tab"] {{
+            color: var(--cs-secondary-text);
+        }}
+        [data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
+            color: var(--cs-accent);
+            border-bottom-color: var(--cs-accent);
+        }}
+        [data-testid="stFileUploader"] section {{
+            color: var(--cs-primary-text);
+            background: var(--cs-content-background);
+            border-color: var(--cs-border);
+        }}
+
+        [data-testid="stButton"] > button,
+        [data-testid="stFormSubmitButton"] > button,
+        [data-testid="stLinkButton"] a,
+        [data-testid="stDownloadButton"] button {{
+            color: var(--cs-primary-text);
+            background: var(--cs-content-background);
+            border-color: var(--cs-border);
+        }}
+        [data-testid="stButton"] > button:hover,
+        [data-testid="stLinkButton"] a:hover {{
+            color: var(--cs-primary-text);
+            background: var(--cs-hover);
+            border-color: var(--cs-border);
+        }}
+        [data-testid="stButton"] > button[kind="primary"],
+        [data-testid="stFormSubmitButton"] > button[kind="primary"] {{
+            color: #FFFFFF;
+            background: var(--cs-accent);
+            border-color: var(--cs-accent);
+        }}
+        [data-testid="stSegmentedControl"] {{
+            color: var(--cs-secondary-text);
+            background: var(--cs-sidebar-background);
+            border-radius: 8px;
+        }}
+        [data-testid="stSegmentedControl"] button {{ color: var(--cs-secondary-text); }}
+        [data-testid="stSegmentedControl"] button[aria-checked="true"] {{
+            color: var(--cs-primary-text);
+            background: var(--cs-content-background);
+        }}
+        [data-testid="stAlert"] {{
+            color: var(--cs-primary-text);
+            background: var(--cs-content-background);
+            border-color: var(--cs-border);
+        }}
+        [data-testid="stAlert"] p,
+        [data-testid="stAlert"] span {{ color: var(--cs-primary-text); }}
+
+        .landing-hero {{ text-align: center; padding: 0.45rem 0 0.2rem; }}
+        .landing-hero h1 {{
+            color: var(--cs-primary-text);
+            font-size: 2.25rem;
+            line-height: 1.15;
+            margin: 0.25rem 0 0.45rem;
+        }}
+        .landing-hero p, .landing-card p {{ color: var(--cs-secondary-text); }}
+        .landing-section-title {{
+            color: var(--cs-primary-text);
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0.6rem 0 0.4rem;
+        }}
+        .landing-card {{
+            color: var(--cs-primary-text);
+            background: var(--cs-card-background);
+            border: 1px solid var(--cs-border);
+            border-radius: 14px;
+            padding: 0.75rem 1rem;
+            min-height: 94px;
+        }}
+        .landing-card h3 {{ color: var(--cs-primary-text); font-size: 1rem; }}
+        .landing-card p {{ font-size: 0.88rem; margin: 0; }}
+        .landing-price {{ min-height: 118px; text-align: center; }}
+        .landing-price .price {{
+            color: var(--cs-accent);
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin: 0.25rem 0;
+        }}
+        .landing-footer {{
+            color: var(--cs-secondary-text);
+            font-size: 0.75rem;
+            text-align: center;
+            padding-top: 0.4rem;
+        }}
+        .st-key-forgot_password button {{
+            color: var(--cs-accent);
+            background: transparent;
+            border: 0;
+            text-decoration: underline;
+        }}
+        .st-key-back_to_landing {{
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: auto;
+        }}
+        .st-key-back_to_landing button {{
+            color: var(--cs-secondary-text);
+            background: var(--cs-content-background);
+            border-color: var(--cs-border);
+        }}
+
+        .stApp ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+        .stApp ::-webkit-scrollbar-track {{ background: var(--cs-main-background); }}
+        .stApp ::-webkit-scrollbar-thumb {{
+            background: var(--cs-border);
+            border-radius: 9999px;
+        }}
+
+        @media (max-width: 768px) {{
+            .block-container {{
+                width: 100%;
+                max-width: 100vw;
+                padding-left: 1rem;
+                padding-right: 1rem;
+                box-sizing: border-box;
+            }}
+            [data-testid="stMain"] {{ max-width: 100vw; overflow-x: hidden; }}
+            [data-testid="stSidebar"] {{ max-width: 85vw; box-sizing: border-box; }}
+            [data-testid="stSidebar"] > div:first-child {{
+                padding: 2.5rem 0.75rem 0.75rem;
+            }}
+            [data-testid="stSidebarCollapseButton"],
+            [data-testid="stSidebarCollapsedControl"],
+            [data-testid="collapsedControl"] {{
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                z-index: 9999;
+            }}
+            .logo-container {{ margin-top: 0.5rem; }}
+        }}
+        {f"""
+        [data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stForm"],
+        [data-testid="stExpander"],
+        [data-testid="stPopover"],
+        [data-testid="stPopoverBody"],
+        [data-testid="stMetric"],
+        [data-testid="stAlert"],
+        .cs-theme-card,
+        .landing-card {{
+            background: var(--cs-card-surface);
+            border-color: var(--cs-card-border);
+            border-radius: var(--cs-card-radius);
+            box-shadow: var(--cs-card-shadow);
+        }}
+        [data-testid="stVerticalBlockBorderWrapper"] {{
+            box-shadow: var(--cs-card-shadow);
+        }}
+        [data-testid="stSidebar"] {{
+            background: var(--cs-sidebar-background-gradient);
+            border-right-color: var(--cs-card-border);
+        }}
+        [data-testid="stSidebar"] > div,
+        [data-testid="stSidebar"] section {{ background: transparent; }}
+        [data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] {{
+            background: rgba(167, 139, 250, 0.14);
+            border: 1px solid var(--cs-card-border);
+        }}
+        [data-testid="stHeader"],
+        [data-testid="stToolbar"] {{
+            background: linear-gradient(180deg, rgba(8, 11, 20, 0.72), transparent);
+        }}
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {{
+            background: var(--cs-content-background);
+            border-color: var(--cs-card-border);
+        }}
+        [data-testid="stTextInput"] input:focus,
+        [data-testid="stNumberInput"] input:focus,
+        [data-testid="stDateInput"] input:focus,
+        [data-testid="stTextArea"] textarea:focus,
+        [data-baseweb="select"]:focus-within {{
+            border-color: rgba(167, 139, 250, 0.55);
+            box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.18);
+        }}
+        [data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
+            border-bottom-color: #A78BFA;
+        }}
+        .st-key-crypto_news [data-testid="stLinkButton"] a {{
+            color: var(--cs-primary-text);
+            background: var(--cs-card-surface);
+            border-color: var(--cs-card-border);
+            border-radius: var(--cs-card-radius);
+            box-shadow: var(--cs-card-shadow);
+        }}
+        .st-key-crypto_news [data-testid="stLinkButton"] a:hover {{
+            color: var(--cs-primary-text);
+            background: var(--cs-hover);
+        }}
+        .st-key-crypto_news [data-testid="stLinkButton"] a:focus-visible {{
+            outline: 2px solid var(--cs-accent);
+            outline-offset: 2px;
+        }}
+        .st-key-crypto_news ::selection {{
+            color: var(--cs-primary-text);
+            background: rgba(167, 139, 250, 0.32);
+        }}
+        """ if is_dark_mode else ""}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )

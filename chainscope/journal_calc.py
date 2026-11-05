@@ -1,8 +1,6 @@
 """Modul untuk menghitung portofolio otomatis dari histori Trading Journal."""
-import streamlit as st
 import pandas as pd
 
-@st.cache_data
 def calculate_portfolio_from_trades(trades: list[dict]) -> pd.DataFrame:
     """Mengubah daftar transaksi (buy/sell) menjadi ringkasan portofolio.
     

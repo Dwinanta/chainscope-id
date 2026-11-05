@@ -6,15 +6,18 @@ from chainscope import chart_component
 def test_render_modern_chart_includes_supported_features(monkeypatch):
     rendered = {}
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda html, **kwargs: rendered.update(html=html, options=kwargs),
     )
 
     chart_component.render_modern_chart("ETH", height=640)
 
     html = rendered["html"]
-    assert rendered["options"] == {"height": 640, "scrolling": False}
+    assert rendered["options"] == {
+        "height": 640,
+        "alt": "Interactive cryptocurrency market chart",
+    }
     assert "ETH/USDT" in html
     assert "https://api.binance.com/api/v3/klines" in html
     assert "https://indodax.com/tradingview/history_v2" in html
@@ -32,7 +35,8 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
     assert 'data-type="candlestick"' in html
     assert "chart.js@latest" in html
     assert "const IS_DARK_MODE = false;" in html
-    assert "background: #fff" in html
+    assert "--cs-content-background: #FFFFFF;" in html
+    assert "background: var(--cs-input-background)" in html
     assert "__BACKGROUND_COLOR__" not in html
     assert "__TEXT_COLOR__" not in html
     assert "__IS_DARK_MODE__" not in html
@@ -40,13 +44,13 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
     assert "chartjs-chart-financial@0.2.1" in html
     assert "chartjs-plugin-zoom@latest" in html
     assert 'id="pairButton"' in html
-    assert "border: 1px solid #e5e7eb" in html
+    assert "border: 1px solid var(--cs-border)" in html
     assert "border-radius: 8px" in html
-    assert "color: #1f2937" in html
-    assert "background: #f8f5ff" in html
+    assert "color: var(--cs-primary-text)" in html
+    assert "background: var(--cs-main-background)" in html
     assert "border-radius: 16px" in html
     assert "class=\"search-icon\"" in html
-    assert "coin-option:hover { color: #1f2937; background: #f8f5ff; }" in html
+    assert ".coin-option:hover { color: var(--cs-primary-text); background: var(--cs-main-background); }" in html
     assert 'id="coinMark"' not in html
     assert 'id="coinModal"' in html
     assert 'id="coinSearch"' in html
@@ -118,8 +122,8 @@ def test_render_modern_chart_includes_supported_features(monkeypatch):
 
 def test_render_modern_chart_rejects_invalid_symbol(monkeypatch):
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda *_args, **_kwargs: pytest.fail("Invalid symbols must not render HTML"),
     )
 
@@ -130,8 +134,8 @@ def test_render_modern_chart_rejects_invalid_symbol(monkeypatch):
 def test_render_modern_chart_defaults_to_btcusdt(monkeypatch):
     rendered = {}
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda html, **kwargs: rendered.update(html=html, options=kwargs),
     )
 
@@ -139,14 +143,17 @@ def test_render_modern_chart_defaults_to_btcusdt(monkeypatch):
 
     assert "BTC/USDT" in rendered["html"]
     assert 'const INITIAL_SYMBOL = "BTC"' in rendered["html"]
-    assert rendered["options"] == {"height": 600, "scrolling": False}
+    assert rendered["options"] == {
+        "height": 600,
+        "alt": "Interactive cryptocurrency market chart",
+    }
 
 
 def test_render_modern_chart_can_use_external_coin_selection(monkeypatch):
     rendered = {}
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda html, **kwargs: rendered.update(html=html, options=kwargs),
     )
 
@@ -158,8 +165,8 @@ def test_render_modern_chart_can_use_external_coin_selection(monkeypatch):
 def test_render_modern_chart_applies_dark_theme(monkeypatch):
     rendered = {}
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda html, **kwargs: rendered.update(html=html, options=kwargs),
     )
 
@@ -167,17 +174,26 @@ def test_render_modern_chart_applies_dark_theme(monkeypatch):
 
     html = rendered["html"]
     assert "const IS_DARK_MODE = true;" in html
-    assert "background: #0B0E14" in html
-    assert "grid: IS_DARK_MODE ? \"#303746\"" in html
+    assert "--cs-main-background: linear-gradient(135deg, #080B14 0%, #0D1220 50%, #111827 100%);" in html
+    assert "--cs-plot-area-background: #111827;" in html
+    assert ".charts { background: var(--cs-plot-area-background); }" in html
+    assert '"grid": "rgba(148, 163, 184, 0.12)"' in html
+    assert '"muted": "#CBD5E1"' in html
+    assert 'ticks: { color: colors.muted' in html
+    assert "grid: { color: colors.grid }" in html
+    assert "backgroundColor: colors.tooltipBackground" in html
+    assert "titleColor: colors.tooltipText" in html
     assert "__BACKGROUND_COLOR__" not in html
     assert "__COIN_SELECTOR_STYLE__" not in html
+    assert "__THEME_STYLE__" not in html
+    assert "__CHART_COLORS__" not in html
 
 
 def test_render_modern_chart_embeds_coin_ids_and_logos(monkeypatch):
     rendered = {}
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda html, **kwargs: rendered.update(html=html, options=kwargs),
     )
 
@@ -199,8 +215,8 @@ def test_render_modern_chart_embeds_coin_ids_and_logos(monkeypatch):
 def test_render_modern_chart_escapes_coin_data_for_script_context(monkeypatch):
     rendered = {}
     monkeypatch.setattr(
-        chart_component.components,
-        "html",
+        chart_component.st,
+        "iframe",
         lambda html, **kwargs: rendered.update(html=html, options=kwargs),
     )
 

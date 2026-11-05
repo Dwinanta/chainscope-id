@@ -46,6 +46,8 @@ def delete_user(user_id: str) -> bool:
 
     for table in ("trades", "alerts", "watchlists"):
         supabase.table(table).delete().eq("user_id", user_id).execute()
+        if table == "trades":
+            _invalidate_user_trades_cache()
     supabase.table("profiles").delete().eq("id", user_id).execute()
 
     if not service_role_key:
@@ -67,12 +69,25 @@ def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float,
         "source": source,
         "strategy_tag": strategy_tag
     }
-    return supabase.table("trades").insert(data).execute()
+    result = supabase.table("trades").insert(data).execute()
+    _invalidate_user_trades_cache()
+    return result
 
+@st.cache_data(ttl=30, max_entries=128, show_spinner=False)
 def get_user_trades(user_id: str, limit: int = 100):
     supabase = get_supabase()
-    res = supabase.table("trades").select("*").eq("user_id", user_id).order("trade_time", desc=True).limit(limit).execute()
+    res = (
+        supabase.table("trades")
+        .select("coin_id,symbol,side,amount,price_usd,trade_time,strategy_tag")
+        .eq("user_id", user_id)
+        .order("trade_time", desc=True)
+        .limit(limit)
+        .execute()
+    )
     return res.data
+
+def _invalidate_user_trades_cache() -> None:
+    get_user_trades.clear()
 
 def get_all_users_dev():
     """Hanya untuk role 'dev'."""
@@ -82,12 +97,16 @@ def get_all_users_dev():
 
 def delete_trade(trade_id: str):
     supabase = get_supabase()
-    return supabase.table("trades").delete().eq("id", trade_id).execute()
+    result = supabase.table("trades").delete().eq("id", trade_id).execute()
+    _invalidate_user_trades_cache()
+    return result
 
 def delete_all_user_trades(user_id: str):
     """Menghapus seluruh riwayat transaksi milik user tertentu."""
     supabase = get_supabase()
-    return supabase.table("trades").delete().eq("user_id", user_id).execute()
+    result = supabase.table("trades").delete().eq("user_id", user_id).execute()
+    _invalidate_user_trades_cache()
+    return result
 
 # ==========================================
 # FUNGSI UNTUK PRICE ALERTS

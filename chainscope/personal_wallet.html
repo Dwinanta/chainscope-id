@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="id" class="__INITIAL_THEME__">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AturUang - Personal Finance Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            purple: '#7c3aed',
+                            purpleDark: '#6d28d9',
+                            purpleLight: '#a78bfa',
+                            bgDark: '#09090b',
+                            cardDark: '#141419',
+                            cardBorderDark: '#27272a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons & Chart.js -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        /* Custom scrollbar for transaction table */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+        __DARK_THEME_STYLE__
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 min-h-screen transition-colors duration-200">
+
+    <!-- APP CONTAINER -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- TOP HEADER BAR -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-[#141419] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-zinc-800/80 shadow-sm transition-colors duration-200">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">AturUang</h1>
+                        <span class="px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 rounded-full uppercase tracking-wider border border-purple-200 dark:border-purple-800/50">Wallet</span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-zinc-400">Kelola Keuangan & Portofolio Pribadi</p>
+                </div>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                <!-- Theme Toggle Button -->
+                <button id="themeToggleBtn" onclick="toggleTheme()" title="Ubah Tema" class="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all border border-slate-200 dark:border-zinc-700">
+                    <i id="themeIcon" data-lucide="moon" class="w-4 h-4"></i>
+                </button>
+
+                <!-- Hide/Show Balance Toggle -->
+                <button id="toggleBalanceBtn" onclick="toggleHideBalance()" title="Sembunyikan Nominal" class="p-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all border border-slate-200 dark:border-zinc-700">
+                    <i id="eyeIcon" data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+
+                <!-- Export CSV Button -->
+                <button onclick="exportToCSV()" class="flex items-center space-x-2 px-3.5 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all border border-purple-200 dark:border-purple-800/60 text-xs font-semibold">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Ekspor CSV</span>
+                </button>
+
+                <!-- Reset Data Button -->
+                <button onclick="confirmResetData()" title="Reset Semua Data" class="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all border border-rose-200 dark:border-rose-900/50">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN GRID LAYOUT -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- LEFT COLUMN: TOTAL PORTFOLIO CARD & FORM (5 COLS) -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- 1. TOTAL PORTFOLIO BALANCE CARD (BITGET WALLET STYLE) -->
+                <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-800 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950 text-white border border-purple-500/20 dark:border-zinc-800 p-6 shadow-xl shadow-purple-500/10 dark:shadow-2xl">
+                    <!-- Decorative Light Effect -->
+                    <div class="absolute -right-10 -bottom-10 w-44 h-44 bg-white/10 dark:bg-purple-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative z-10 flex flex-col space-y-5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-purple-100 dark:text-purple-400 uppercase tracking-wider">Total Portfolio Balance</span>
+                            <span class="px-2 py-0.5 text-[10px] font-bold bg-white/20 dark:bg-purple-500/20 text-white dark:text-purple-300 rounded-md">IDR Wallet</span>
+                        </div>
+
+                        <div>
+                            <h2 id="netBalance" class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Rp 0</h2>
+                            <p id="netBalanceUSDT" class="text-xs font-medium text-purple-200 dark:text-zinc-400 mt-1">≈ 0.00 USDT</p>
+                        </div>
+
+                        <!-- Sub-Metrics Mini Grid (Pemasukan, Pengeluaran, Spot Assets) -->
+                        <div class="grid grid-cols-3 gap-2 bg-white/15 dark:bg-zinc-800/80 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 dark:border-zinc-700/60">
+                            <div class="text-center px-1">
+                                <span class="text-[10px] text-purple-100 dark:text-zinc-400 block font-medium">Pemasukan</span>
+                                <span id="monthlyIncome" class="text-xs sm:text-sm font-bold text-emerald-300 dark:text-emerald-400 mt-0.5 block truncate">Rp 0</span>
+                            </div>
+                            <div class="text-center px-1 border-x border-white/20 dark:border-zinc-700/60">
+                                <span class="text-[10px] text-purple-100 dark:text-zinc-400 block font-medium">Pengeluaran</span>
+                                <span id="monthlyExpense" class="text-xs sm:text-sm font-bold text-rose-300 dark:text-rose-400 mt-0.5 block truncate">Rp 0</span>
+                            </div>
+                            <div class="text-center px-1">
+                                <span class="text-[10px] text-purple-100 dark:text-zinc-400 block font-medium">Spot Assets</span>
+                                <span id="totalInvestments" class="text-xs sm:text-sm font-bold text-purple-200 dark:text-purple-300 mt-0.5 block truncate">Rp 0</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. TRANSACTION ENTRY FORM -->
+                <section class="bg-white dark:bg-[#141419] p-6 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-sm transition-colors duration-200">
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Tambah Transaksi</h3>
+                        </div>
+                        <span class="text-xs text-slate-400 dark:text-zinc-500">Pencatatan Otomatis</span>
+                    </div>
+
+                    <form id="transactionForm" onsubmit="handleAddTransaction(event)" class="space-y-4">
+                        <!-- Transaction Type Buttons -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-2">Tipe Transaksi</label>
+                            <div class="grid grid-cols-3 gap-2 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-xl border border-slate-200 dark:border-zinc-700/50">
+                                <button type="button" onclick="setTxType('pemasukan')" id="btnTypePemasukan" class="py-2 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300">Pemasukan</button>
+                                <button type="button" onclick="setTxType('pengeluaran')" id="btnTypePengeluaran" class="py-2 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300">Pengeluaran</button>
+                                <button type="button" onclick="setTxType('investasi')" id="btnTypeInvestasi" class="py-2 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300">Investasi</button>
+                            </div>
+                        </div>
+
+                        <!-- Amount Input -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1.5">Nominal (IDR)</label>
+                            <div class="relative">
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 dark:text-zinc-500">Rp</span>
+                                <input type="number" id="txAmount" required placeholder="0" min="1" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-xl text-slate-900 dark:text-white font-bold text-base focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all">
+                            </div>
+                            <!-- Quick Nominal Buttons -->
+                            <div class="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1">
+                                <button type="button" onclick="quickAmount(50000)" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-purple-100 dark:hover:bg-purple-950/60 text-slate-600 dark:text-zinc-300 rounded-lg border border-slate-200 dark:border-zinc-700 transition-all">+50rb</button>
+                                <button type="button" onclick="quickAmount(100000)" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-purple-100 dark:hover:bg-purple-950/60 text-slate-600 dark:text-zinc-300 rounded-lg border border-slate-200 dark:border-zinc-700 transition-all">+100rb</button>
+                                <button type="button" onclick="quickAmount(500000)" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-purple-100 dark:hover:bg-purple-950/60 text-slate-600 dark:text-zinc-300 rounded-lg border border-slate-200 dark:border-zinc-700 transition-all">+500rb</button>
+                                <button type="button" onclick="quickAmount(1000000)" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-purple-100 dark:hover:bg-purple-950/60 text-slate-600 dark:text-zinc-300 rounded-lg border border-slate-200 dark:border-zinc-700 transition-all">+1 Juta</button>
+                            </div>
+                        </div>
+
+                        <!-- Category & Date Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1.5">Kategori</label>
+                                <select id="txCategory" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                                    <!-- Dynamic Options Loaded Via JS -->
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1.5">Tanggal</label>
+                                <input type="date" id="txDate" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Notes Input -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1.5">Catatan (Opsional)</label>
+                            <input type="text" id="txNotes" placeholder="Contoh: Gaji bulanan, Beli Crypto, Makan siang" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full py-3 bg-purple-600 hover:bg-purple-700 active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/20 transition-all duration-150 flex items-center justify-center space-x-2">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Simpan Transaksi</span>
+                        </button>
+                    </form>
+                </section>
+
+            </div>
+
+            <!-- RIGHT COLUMN: ANALYTICS & TRANSACTION HISTORY (7 COLS) -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <!-- 1. ANALYTICS & CHART CARD -->
+                <section class="bg-white dark:bg-[#141419] p-6 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-sm transition-colors duration-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Grafik Analytics & Alokasi</h3>
+                        </div>
+
+                        <!-- Chart View Switcher -->
+                        <div class="flex items-center p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700/50 self-start sm:self-auto">
+                            <button id="btnChartDoughnut" onclick="switchChartView('doughnut')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300">Alokasi Kategori</button>
+                            <button id="btnChartBar" onclick="switchChartView('bar')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300">Arus Kas</button>
+                        </div>
+                    </div>
+
+                    <!-- Canvas Container -->
+                    <div class="relative w-full h-[260px] flex items-center justify-center">
+                        <canvas id="financeChart"></canvas>
+                        <div id="emptyChartMessage" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 space-y-2">
+                            <i data-lucide="bar-chart-2" class="w-10 h-10 opacity-40"></i>
+                            <span class="text-xs font-medium">Belum Ada Data Transaksi</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. TRANSACTION HISTORY TABLE CARD -->
+                <section class="bg-white dark:bg-[#141419] p-6 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-sm transition-colors duration-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <i data-lucide="history" class="w-4 h-4"></i>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Riwayat Transaksi</h3>
+                        </div>
+
+                        <!-- Search & Filter Controls -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="relative flex-1 sm:w-44">
+                                <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500"></i>
+                                <input type="text" id="searchInput" oninput="filterTransactions()" placeholder="Cari..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                            </div>
+
+                            <select id="filterType" onchange="filterTransactions()" class="px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-xl text-xs font-medium text-slate-700 dark:text-zinc-300 focus:outline-none">
+                                <option value="all">Semua Tipe</option>
+                                <option value="pemasukan">Pemasukan</option>
+                                <option value="pengeluaran">Pengeluaran</option>
+                                <option value="investasi">Investasi</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Transactions Table Container -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-100 dark:border-zinc-800/80 text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+                                    <th class="pb-3 pl-2">Transaksi</th>
+                                    <th class="pb-3">Tanggal</th>
+                                    <th class="pb-3 text-right">Nominal</th>
+                                    <th class="pb-3 pr-2 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="txTableBody" class="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs">
+                                <!-- Dynamic Rows via JS -->
+                            </tbody>
+                        </table>
+
+                        <!-- Empty State -->
+                        <div id="emptyTableState" class="hidden py-12 text-center text-slate-400 dark:text-zinc-500 space-y-2">
+                            <i data-lucide="inbox" class="w-10 h-10 mx-auto opacity-30"></i>
+                            <p class="text-xs font-medium">Belum ada catatan transaksi</p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL CONFIRM DELETE -->
+    <div id="deleteModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#141419] rounded-3xl max-w-sm w-full p-6 border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <div class="text-center space-y-1">
+                <h4 class="text-base font-bold text-slate-900 dark:text-white">Hapus Transaksi?</h4>
+                <p class="text-xs text-slate-500 dark:text-zinc-400">Tindakan ini tidak dapat dibatalkan. Transaksi akan terhapus secara permanen.</p>
+            </div>
+            <div class="flex items-center space-x-3 pt-2">
+                <button onclick="closeDeleteModal()" class="w-1/2 py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition-all">Batal</button>
+                <button id="confirmDeleteBtn" class="w-1/2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/20 transition-all">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC JAVASCRIPT -->
+    <script>
+        // Constants & State Management
+        const USDT_RATE = 16200; // Fixed conversion rate IDR to USDT
+        let transactions = JSON.parse(localStorage.getItem('aturuang_transactions')) || [];
+        const HOST_THEME = "__INITIAL_THEME__";
+        let currentTheme = HOST_THEME === 'dark' || HOST_THEME === 'light'
+            ? HOST_THEME
+            : localStorage.getItem('aturuang_theme') || 'dark';
+        let isBalanceHidden = localStorage.getItem('aturuang_hide_balance') === 'true';
+        let activeTxType = 'pemasukan';
+        let activeChartView = 'doughnut';
+        let pendingDeleteId = null;
+        let chartInstance = null;
+
+        const CATEGORIES = {
+            pemasukan: ['Gaji & Upah', 'Bonus & Komisi', 'Investasi / Dividen', 'Usaha & Freelance', 'Lainnya'],
+            pengeluaran: ['Makanan & Minuman', 'Transportasi', 'Belanja & Hiburan', 'Tagihan & Utilitas', 'Kesehatan', 'Pendidikan', 'Lainnya'],
+            investasi: ['Crypto / Web3', 'Saham', 'Reksadana', 'Emas / Logam Mulia', 'Properti / Asset']
+        };
+
+        // Initialize App on DOM Load
+        window.onload = function() {
+            initTheme();
+            renderCategories();
+            setDefaultDate();
+            updateDashboard();
+            lucide.createIcons();
+        };
+
+        // Theme Initialization & Handler
+        function initTheme() {
+            const html = document.documentElement;
+            if (currentTheme === 'dark') {
+                html.classList.add('dark');
+            } else {
+                html.classList.remove('dark');
+            }
+            updateThemeIcon();
+        }
+
+        function toggleTheme() {
+            currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('aturuang_theme', currentTheme);
+            initTheme();
+            renderChart(); // Re-render chart to match new theme contrast
+        }
+
+        function updateThemeIcon() {
+            const themeIcon = document.getElementById('themeIcon');
+            if (currentTheme === 'dark') {
+                themeIcon.setAttribute('data-lucide', 'sun');
+            } else {
+                themeIcon.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons();
+        }
+
+        // Hide/Show Balance Toggle
+        function toggleHideBalance() {
+            isBalanceHidden = !isBalanceHidden;
+            localStorage.setItem('aturuang_hide_balance', isBalanceHidden);
+            const eyeIcon = document.getElementById('eyeIcon');
+            eyeIcon.setAttribute('data-lucide', isBalanceHidden ? 'eye-off' : 'eye');
+            lucide.createIcons();
+            updateDashboard();
+        }
+
+        // Set Active Transaction Type Form Switch
+        function setTxType(type) {
+            activeTxType = type;
+            const btnIn = document.getElementById('btnTypePemasukan');
+            const btnOut = document.getElementById('btnTypePengeluaran');
+            const btnInv = document.getElementById('btnTypeInvestasi');
+
+            // Reset base classes
+            [btnIn, btnOut, btnInv].forEach(btn => {
+                btn.className = "py-2 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300";
+            });
+
+            // Highlight active button
+            if (type === 'pemasukan') {
+                btnIn.className = "py-2 text-xs font-bold rounded-lg transition-all bg-emerald-500 text-white shadow-md shadow-emerald-500/20";
+            } else if (type === 'pengeluaran') {
+                btnOut.className = "py-2 text-xs font-bold rounded-lg transition-all bg-rose-500 text-white shadow-md shadow-rose-500/20";
+            } else {
+                btnInv.className = "py-2 text-xs font-bold rounded-lg transition-all bg-purple-600 text-white shadow-md shadow-purple-600/20";
+            }
+
+            renderCategories();
+        }
+
+        function renderCategories() {
+            const catSelect = document.getElementById('txCategory');
+            catSelect.innerHTML = '';
+            CATEGORIES[activeTxType].forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                catSelect.appendChild(opt);
+            });
+        }
+
+        function setDefaultDate() {
+            document.getElementById('txDate').valueAsDate = new Date();
+        }
+
+        function quickAmount(val) {
+            const input = document.getElementById('txAmount');
+            const currentVal = parseFloat(input.value) || 0;
+            input.value = currentVal + val;
+        }
+
+        // Transaction Management Logic
+        function handleAddTransaction(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('txAmount').value);
+            const category = document.getElementById('txCategory').value;
+            const date = document.getElementById('txDate').value;
+            const notes = document.getElementById('txNotes').value.trim();
+
+            if (!amount || amount <= 0 || !category || !date) return;
+
+            const newTx = {
+                id: Date.now(),
+                type: activeTxType,
+                amount: amount,
+                category: category,
+                date: date,
+                notes: notes
+            };
+
+            transactions.unshift(newTx);
+            saveTransactions();
+
+            // Reset Form Inputs
+            document.getElementById('txAmount').value = '';
+            document.getElementById('txNotes').value = '';
+            setDefaultDate();
+
+            updateDashboard();
+        }
+
+        function saveTransactions() {
+            localStorage.setItem('aturuang_transactions', JSON.stringify(transactions));
+        }
+
+        function openDeleteModal(id) {
+            pendingDeleteId = id;
+            document.getElementById('deleteModal').classList.remove('hidden');
+            document.getElementById('confirmDeleteBtn').onclick = function() {
+                deleteTransaction(pendingDeleteId);
+                closeDeleteModal();
+            };
+        }
+
+        function closeDeleteModal() {
+            pendingDeleteId = null;
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        function deleteTransaction(id) {
+            transactions = transactions.filter(t => t.id !== id);
+            saveTransactions();
+            updateDashboard();
+        }
+
+        function confirmResetData() {
+            if (confirm('Apakah Anda yakin ingin menghapus SELURUH riwayat transaksi? Data tidak dapat dikembalikan.')) {
+                transactions = [];
+                saveTransactions();
+                updateDashboard();
+            }
+        }
+
+        // Formatters
+        function formatIDR(amount) {
+            if (isBalanceHidden) return '••••••••';
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+        }
+
+        function formatUSDT(amountIDR) {
+            if (isBalanceHidden) return '≈ •••• USDT';
+            const usdt = amountIDR / USDT_RATE;
+            return `≈ ${usdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+        }
+
+        // Update UI & Dashboard Calculation
+        function updateDashboard() {
+            let totalIncome = 0;
+            let totalExpense = 0;
+            let totalInvest = 0;
+
+            transactions.forEach(t => {
+                if (t.type === 'pemasukan') totalIncome += t.amount;
+                else if (t.type === 'pengeluaran') totalExpense += t.amount;
+                else if (t.type === 'investasi') totalInvest += t.amount;
+            });
+
+            const netBalance = totalIncome - totalExpense;
+
+            // Render Header Portfolio Balance Card
+            document.getElementById('netBalance').textContent = formatIDR(netBalance);
+            document.getElementById('netBalanceUSDT').textContent = formatUSDT(netBalance);
+            document.getElementById('monthlyIncome').textContent = formatIDR(totalIncome);
+            document.getElementById('monthlyExpense').textContent = formatIDR(totalExpense);
+            document.getElementById('totalInvestments').textContent = formatIDR(totalInvest);
+
+            renderTable();
+            renderChart();
+            setTxType(activeTxType);
+        }
+
+        // Transaction History Table Render & Filter
+        function renderTable() {
+            const tbody = document.getElementById('txTableBody');
+            const emptyState = document.getElementById('emptyTableState');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const typeFilter = document.getElementById('filterType').value;
+
+            tbody.innerHTML = '';
+
+            const filtered = transactions.filter(t => {
+                const matchesSearch = t.category.toLowerCase().includes(search) || (t.notes && t.notes.toLowerCase().includes(search));
+                const matchesType = typeFilter === 'all' || t.type === typeFilter;
+                return matchesSearch && matchesType;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            filtered.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors";
+
+                let typeBadge = '';
+                let amountClass = '';
+                let amountPrefix = '';
+
+                if (t.type === 'pemasukan') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-md">Pemasukan</span>`;
+                    amountClass = 'text-emerald-600 dark:text-emerald-400 font-bold';
+                    amountPrefix = '+';
+                } else if (t.type === 'pengeluaran') {
+                    typeBadge = `<span class="px-2 py-0.5 text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 rounded-md">Pengeluaran</span>`;
+                    amountClass = 'text-rose-600 dark:text-rose-400 font-bold';
+                    amountPrefix = '-';
+                } else {
+                    typeBadge = `<span class="px-2 py-0.5 text-[10px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 rounded-md">Investasi</span>`;
+                    amountClass = 'text-purple-600 dark:text-purple-400 font-bold';
+                    amountPrefix = '•';
+                }
+
+                tr.innerHTML = `
+                    <td class="py-3 pl-2">
+                        <div class="flex flex-col">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-slate-900 dark:text-white">${t.category}</span>
+                                ${typeBadge}
+                            </div>
+                            ${t.notes ? `<span class="text-[11px] text-slate-400 dark:text-zinc-400 mt-0.5">${t.notes}</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="py-3 text-slate-500 dark:text-zinc-400 text-[11px] font-medium whitespace-nowrap">${t.date}</td>
+                    <td class="py-3 text-right ${amountClass} whitespace-nowrap">
+                        ${isBalanceHidden ? '••••••••' : `${amountPrefix} ${t.amount.toLocaleString('id-ID')}`}
+                    </td>
+                    <td class="py-3 pr-2 text-right whitespace-nowrap">
+                        <button onclick="openDeleteModal(${t.id})" class="p-1 text-slate-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            lucide.createIcons();
+        }
+
+        function filterTransactions() {
+            renderTable();
+        }
+
+        // Interactive Analytics Chart (Chart.js)
+        function switchChartView(view) {
+            activeChartView = view;
+            const btnDoughnut = document.getElementById('btnChartDoughnut');
+            const btnBar = document.getElementById('btnChartBar');
+
+            if (view === 'doughnut') {
+                btnDoughnut.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-purple-600 text-white shadow-sm";
+                btnBar.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300";
+            } else {
+                btnBar.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-purple-600 text-white shadow-sm";
+                btnDoughnut.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-700 dark:text-zinc-300";
+            }
+            renderChart();
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            const emptyMsg = document.getElementById('emptyChartMessage');
+
+            if (transactions.length === 0) {
+                if (chartInstance) chartInstance.destroy();
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            const isDark = currentTheme === 'dark';
+            const textColor = isDark ? '#f4f4f5' : '#0f172a';
+
+            if (chartInstance) chartInstance.destroy();
+
+            if (activeChartView === 'doughnut') {
+                // Category allocation breakdown
+                const catTotals = {};
+                transactions.forEach(t => {
+                    catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+                });
+
+                chartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(catTotals),
+                        datasets: [{
+                            data: Object.values(catTotals),
+                            backgroundColor: ['#8b5cf6', '#10b981', '#f43f5e', '#3b82f6', '#f59e0b', '#ec4899', '#6366f1'],
+                            borderWidth: 2,
+                            borderColor: isDark ? '#141419' : '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { color: textColor, font: { family: 'Plus Jakarta Sans', size: 11, weight: 600 } }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Monthly Cashflow Bar Chart
+                let totalIncome = 0;
+                let totalExpense = 0;
+                let totalInvest = 0;
+
+                transactions.forEach(t => {
+                    if (t.type === 'pemasukan') totalIncome += t.amount;
+                    else if (t.type === 'pengeluaran') totalExpense += t.amount;
+                    else if (t.type === 'investasi') totalInvest += t.amount;
+                });
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Pemasukan', 'Pengeluaran', 'Investasi'],
+                        datasets: [{
+                            data: [totalIncome, totalExpense, totalInvest],
+                            backgroundColor: ['#10b981', '#f43f5e', '#8b5cf6'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { ticks: { color: textColor, font: { family: 'Plus Jakarta Sans', weight: 600 } }, grid: { display: false } },
+                            y: { ticks: { color: textColor }, grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Export Transactions to CSV File
+        function exportToCSV() {
+            if (transactions.length === 0) {
+                alert('Tidak ada transaksi untuk diekspor!');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,ID,Tipe,Kategori,Nominal (IDR),Tanggal,Catatan\n";
+            transactions.forEach(t => {
+                const row = `"${t.id}","${t.type}","${t.category}","${t.amount}","${t.date}","${t.notes || ''}"`;
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `AturUang_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

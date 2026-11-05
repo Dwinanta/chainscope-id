@@ -24,53 +24,24 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-ui.apply_premium_theme()
-
 # 2. CEK AUTENTIKASI
 auth.check_session()
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
 if "show_landing" not in st.session_state:
     st.session_state.show_landing = True
 
 if "user" not in st.session_state or st.session_state.user is None:
+    dark_mode = st.toggle("Dark Mode", key="dark_mode")
+    ui.apply_theme(dark_mode)
     if st.session_state.show_landing:
         st.markdown(
             """
             <style>
-            .stApp { background: #f8f5ff !important; color: #171827; }
             .block-container {
                 max-width: 1100px !important;
                 padding-top: 0.5rem !important;
                 padding-bottom: 0.5rem !important;
-            }
-            .stButton > button[kind="primary"] {
-                background: #7c3aed !important;
-                border: 1px solid #7c3aed !important;
-                color: white !important;
-            }
-            .landing-hero { text-align: center; padding: 0.45rem 0 0.2rem; }
-            .landing-hero h1 {
-                color: #171827 !important; font-size: 2.25rem !important;
-                line-height: 1.15; margin: 0.25rem 0 0.45rem;
-            }
-            .landing-hero p { color: #625d70; font-size: 1rem; margin: 0; }
-            .landing-section-title {
-                color: #171827; font-size: 1.1rem; font-weight: 700;
-                text-align: center; margin: 0.6rem 0 0.4rem;
-            }
-            .landing-card {
-                background: #fff; border: 1px solid #e8defc; border-radius: 14px;
-                padding: 0.75rem 1rem; min-height: 94px;
-            }
-            .landing-card h3 { color: #171827; font-size: 1rem; margin: 0 0 0.25rem; }
-            .landing-card p { color: #625d70; font-size: 0.88rem; margin: 0; }
-            .landing-price { min-height: 118px; text-align: center; }
-            .landing-price .price {
-                color: #7c3aed; font-size: 1.4rem; font-weight: 800;
-                margin: 0.25rem 0;
-            }
-            .landing-footer {
-                color: #77788a; font-size: 0.75rem; text-align: center;
-                padding-top: 0.4rem;
             }
             </style>
             """,
@@ -221,14 +192,14 @@ if "current_page" not in st.session_state:
 with st.sidebar:
     st.markdown("""
         <div class='logo-container'>
-            <div style='background: #6C35D9; padding: 6px 10px; border-radius: 8px;'>
+            <div style='background: var(--cs-accent); padding: 6px 10px; border-radius: 8px;'>
                 <span style='color:white; font-size:1.2rem;'>⚡</span>
             </div>
-            <span style='font-size:1.2rem; font-weight:800; color:#171827;'>ChainScope <span style='color:#6C35D9;'>ID</span></span>
+            <span style='font-size:1.2rem; font-weight:800; color:var(--cs-primary-text);'>ChainScope <span style='color:var(--cs-accent);'>ID</span></span>
         </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: #E9E6F0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 0px 0px 10px 0px; border-color: var(--cs-border);'>", unsafe_allow_html=True)
 
     language = st.radio(
         config.translate(st.session_state.language, "Language"),
@@ -236,9 +207,8 @@ with st.sidebar:
         horizontal=True,
         key="language",
     )
-    dark_mode = st.toggle(
+    dark_mode =     st.toggle(
         config.translate(language, "Dark Mode"),
-        value=False,
         key="dark_mode",
     )
 
@@ -252,7 +222,8 @@ with st.sidebar:
         "technical-analysis": "📉 Technical Analysis",
         "portfolio": "💼 Portfolio",
         "converter": "💱 Converter",
-        "watchlist": "⭐ Watchlist"
+        "watchlist": "⭐ Watchlist",
+        "wallet": "💰 Personal Wallet",
     }
     if is_dev:
         menu_config["admin-panel"] = "👑 Admin Panel"
@@ -263,39 +234,39 @@ with st.sidebar:
             st.session_state.current_page = url_key
             st.rerun()
 
-    st.markdown("---")
     currency = st.selectbox(
         "Mata uang:",
         options=list(config.CURRENCY_OPTIONS),
         format_func=lambda code: config.CURRENCY_OPTIONS[code]["label"],
     )
 
-if dark_mode:
-    ui.apply_dark_theme()
+ui.apply_theme(dark_mode)
 
 current_page = st.session_state.current_page
+theme_palette = ui.get_theme_palette(dark_mode)
 
-# 5. AMBIL DATA PASAR
+# 5. AMBIL DATA PASAR HANYA UNTUK HALAMAN YANG MEMAKAINYA
 data_source = "LIVE"
+market_df = pd.DataFrame()
+if current_page != "wallet":
+    try:
+        market_df = cached_market_data(currency)
+    except api.ChainScopeAPIError:
+        st.error("Gagal mengambil data dari CoinGecko.")
+        st.stop()
 
-try:
-    market_df = cached_market_data(currency)
-except api.ChainScopeAPIError:
-    st.error("Gagal mengambil data dari CoinGecko.")
-    st.stop()
+    market_df = market_df.copy()
+    try:
+        all_coins = pd.DataFrame(cached_all_coins())
+    except api.ChainScopeAPIError:
+        st.error("Gagal mengambil data dari CoinGecko.")
+        st.stop()
 
-market_df = market_df.copy()
-try:
-    all_coins = pd.DataFrame(cached_all_coins())
-except api.ChainScopeAPIError:
-    st.error("Gagal mengambil data dari CoinGecko.")
-    st.stop()
+    if not all_coins.empty:
+        market_df = api.merge_market_and_coin_list(market_df, all_coins)
 
-if not all_coins.empty:
-    market_df = api.merge_market_and_coin_list(market_df, all_coins)
-
-market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
-market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
+    market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
+    market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
 
 # ===========================================================================
 # ROUTING HALAMAN
@@ -324,7 +295,11 @@ if current_page == "market-overview":
     for col, (_, row) in zip(cols, top4_df.iterrows()):
         with col:
             with st.container(border=True):
-                color = "#16834A" if row['price_change_percentage_24h'] >= 0 else "#D83D50"
+                color = (
+                    theme_palette["positive_text"]
+                    if row["price_change_percentage_24h"] >= 0
+                    else theme_palette["negative_text"]
+                )
                 icon = "▲" if row['price_change_percentage_24h'] >= 0 else "▼"
                 c_left, c_right = st.columns([1.2, 1])
                 with c_left:
@@ -332,12 +307,12 @@ if current_page == "market-overview":
                     <div style='display:flex; gap:8px; align-items:center;'>
                         <img src="{row['image']}" width="24" height="24">
                         <div>
-                            <div style='font-weight:700; font-size:0.85rem; color:#171827;'>{row['name']}</div>
-                            <div style='font-size:0.7rem; color:#77788A;'>{row['symbol_upper']}</div>
+                            <div style='font-weight:700; font-size:0.85rem; color:var(--cs-primary-text);'>{row['name']}</div>
+                            <div style='font-size:0.7rem; color:var(--cs-secondary-text);'>{row['symbol_upper']}</div>
                         </div>
                     </div>
                     <div style='margin-top:15px;'>
-                        <div style='font-weight:800; font-size:1.1rem; color:#171827;'>{formatting.format_money(row['current_price'], currency)}</div>
+                        <div style='font-weight:800; font-size:1.1rem; color:var(--cs-primary-text);'>{formatting.format_money(row['current_price'], currency)}</div>
                         <div style='color:{color}; font-size:0.8rem; font-weight:600;'>{icon} {row['price_change_percentage_24h']:.2f}%</div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -346,6 +321,7 @@ if current_page == "market-overview":
                     if sparkline_prices:
                         fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
                         fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=60, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
+                        ui.apply_plotly_theme(fig, dark_mode)
                         st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
     try:
@@ -356,14 +332,18 @@ if current_page == "market-overview":
         classification = fear_greed["classification"]
         normalized_classification = classification.lower()
         sentiment_color = (
-            "#16834A" if "greed" in normalized_classification
-            else "#D83D50" if "fear" in normalized_classification
-            else "#7c3aed"
+            "var(--cs-positive-text)" if "greed" in normalized_classification
+            else "var(--cs-negative-text)" if "fear" in normalized_classification
+            else "var(--cs-accent)"
         )
         st.markdown(
             "<div style='display:inline-flex; align-items:center; gap:6px; "
-            "padding:8px 12px; margin:4px 0 8px; border:1px solid #e8defc; "
-            "border-radius:10px; background:#fff; color:#171827; font-size:0.9rem;'>"
+            "padding:8px 12px; margin:4px 0 8px; "
+            "border:1px solid var(--cs-card-border, var(--cs-border)); "
+            "border-radius:var(--cs-card-radius, 10px); "
+            "background:var(--cs-card-surface, var(--cs-content-background)); "
+            "box-shadow:var(--cs-card-shadow, none); "
+            "color:var(--cs-primary-text); font-size:0.9rem;'>"
             "Fear &amp; Greed: "
             f"<strong style='color:{sentiment_color};'>"
             f"{escape(fear_greed['value'])} ({escape(classification)})</strong></div>",
@@ -376,15 +356,16 @@ if current_page == "market-overview":
     except api.ChainScopeAPIError as exc:
         st.warning(f"Berita crypto sementara tidak tersedia: {exc}")
     else:
-        if not crypto_news:
-            st.info("Belum ada berita crypto terbaru.")
-        for article in crypto_news:
-            st.link_button(
-                article["title"],
-                article["url"],
-                help=f"Sumber: {article['source']}",
-            )
-            st.caption(article["source"])
+        with st.container(key="crypto_news"):
+            if not crypto_news:
+                st.info("Belum ada berita crypto terbaru.")
+            for article in crypto_news:
+                st.link_button(
+                    article["title"],
+                    article["url"],
+                    help=f"Sumber: {article['source']}",
+                )
+                st.caption(article["source"])
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -392,7 +373,7 @@ if current_page == "market-overview":
     with col_chart:
         with st.container(border=True):
             c_t1, c_t2, c_t3 = st.columns([2, 1, 1.5])
-            c_t1.markdown("<p style='font-weight:700; color:#171827; font-size:1rem; margin-bottom:0;'>Market Chart</p>", unsafe_allow_html=True)
+            c_t1.markdown("<p style='font-weight:700; color:var(--cs-primary-text); font-size:1rem; margin-bottom:0;'>Market Chart</p>", unsafe_allow_html=True)
             overview_coins = search.filter_coins(market_df, search_query)
             if overview_coins.empty:
                 st.info("Tidak ada koin yang cocok dengan pencarian.")
@@ -418,14 +399,28 @@ if current_page == "market-overview":
                 coin_mcap = coin_row["market_cap"]
                 dominance = (coin_mcap / total_mcap) * 100 if total_mcap else 0
 
-                st.markdown(f"<p style='font-size:0.75rem; color:#77788A; margin-top:5px; margin-bottom:0;'>Market Cap {coin_row['symbol_upper']} (Dominance: {dominance:.2f}%)</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='font-size:0.75rem; color:var(--cs-secondary-text); margin-top:5px; margin-bottom:0;'>Market Cap {coin_row['symbol_upper']} (Dominance: {dominance:.2f}%)</p>", unsafe_allow_html=True)
                 st.markdown(f"<h2 style='margin-top:0;'>{formatting.format_money(coin_mcap, currency)}</h2>", unsafe_allow_html=True)
 
                 try:
                     hist_df = cached_price_history(chart_coin_id, currency, days_map[tf])
-                    fig_main = px.area(hist_df, x="waktu", y="price", color_discrete_sequence=['#6C35D9'])
-                    fig_main.update_traces(fillcolor='rgba(108, 53, 217, 0.08)', line=dict(width=1.5))
-                    fig_main.update_layout(margin=dict(l=0, r=0, t=5, b=0), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, tickfont=dict(size=10)), yaxis=dict(showgrid=True, gridcolor='#E9E6F0', tickfont=dict(size=10)))
+                    fig_main = px.area(
+                        hist_df,
+                        x="waktu",
+                        y="price",
+                        color_discrete_sequence=[theme_palette["accent"]],
+                    )
+                    fig_main.update_traces(
+                        fillcolor=theme_palette["area_fill"],
+                        line=dict(width=1.5),
+                    )
+                    ui.apply_plotly_theme(fig_main, dark_mode)
+                    fig_main.update_layout(
+                        margin=dict(l=0, r=0, t=5, b=0),
+                        height=300,
+                        xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+                        yaxis=dict(showgrid=True, tickfont=dict(size=10)),
+                    )
                     st.plotly_chart(fig_main, width='stretch', config={'displayModeBar': False, 'scrollZoom': True})
                 except Exception:
                     st.warning("Riwayat harga koin ini belum tersedia.")
@@ -434,10 +429,10 @@ if current_page == "market-overview":
         with st.container(border=True):
             gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(3)
             losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(3)
-            html = f"<p style='font-weight:700; font-size:0.95rem; color:#171827; margin-bottom:10px;'>Top Gainers ⚡</p>"
+            html = "<p style='font-weight:700; font-size:0.95rem; color:var(--cs-primary-text); margin-bottom:10px;'>Top Gainers ⚡</p>"
             for _, r in gainers.iterrows():
                 html += f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><div style='display:flex; gap:6px;'><img src='{r['image']}' width='16'><div><span style='font-size:0.75rem; font-weight:600;'>{r['symbol_upper']}</span><br><span style='font-size:0.65rem;'>{formatting.format_money(r['current_price'], currency)}</span></div></div><span class='text-green'>+{r['price_change_percentage_24h']:.2f}%</span></div>"
-            html += f"<hr style='margin:8px 0;'><p style='font-weight:700; font-size:0.95rem; color:#171827; margin-bottom:10px;'>Top Losers ⚡</p>"
+            html += "<hr style='margin:8px 0; border-color:var(--cs-border);'><p style='font-weight:700; font-size:0.95rem; color:var(--cs-primary-text); margin-bottom:10px;'>Top Losers ⚡</p>"
             for _, r in losers.iterrows():
                 html += f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><div style='display:flex; gap:6px;'><img src='{r['image']}' width='16'><div><span style='font-size:0.75rem; font-weight:600;'>{r['symbol_upper']}</span><br><span style='font-size:0.65rem;'>{formatting.format_money(r['current_price'], currency)}</span></div></div><span class='text-red'>{r['price_change_percentage_24h']:.2f}%</span></div>"
             st.markdown(html, unsafe_allow_html=True)
@@ -520,7 +515,7 @@ elif current_page == "market-data":
                 ),
             })
             
-            event = st.dataframe(display_df, width='stretch', hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
+            event = st.dataframe(ui.style_dataframe(display_df, dark_mode), width='stretch', hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
             
             if len(event.selection.rows) > 0:
                 selected_idx = event.selection.rows[0]
@@ -560,7 +555,7 @@ elif current_page == "market-data":
                     "Terendah 24j": indodax_df["Low"].map(lambda v: f"Rp {v:,.0f}"),
                     "Volume (IDR)": indodax_df["Volume"].map(lambda v: f"Rp {v:,.0f}"),
                 })
-                st.dataframe(display_df, width='stretch', hide_index=True)
+                st.dataframe(ui.style_dataframe(display_df, dark_mode), width='stretch', hide_index=True)
 
 elif current_page == "relative-strategy" and sub_tier == "Free":
     st.markdown(
@@ -580,7 +575,7 @@ elif current_page == "relative-strategy":
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p style='color:#77788A;'>Bandingkan pergerakan dua koin berdasarkan rasio harga 30 hari.</p>",
+        "<p style='color:var(--cs-secondary-text);'>Bandingkan pergerakan dua koin berdasarkan rasio harga 30 hari.</p>",
         unsafe_allow_html=True,
     )
 
@@ -652,29 +647,26 @@ elif current_page == "relative-strategy":
                     y=ratio_df["ratio"],
                     mode="lines",
                     name=f"{coin_a_label} / {coin_b_label}",
-                    line={"color": "#7c3aed", "width": 2},
+                    line={"color": theme_palette["accent"], "width": 2},
                 ))
                 fig_ratio.add_trace(go.Scatter(
                     x=ratio_df["waktu"],
                     y=ratio_df["ma20"],
                     mode="lines",
                     name="MA 20",
-                    line={"color": "#a78bfa", "width": 1.5, "dash": "dash"},
+                    line={"color": theme_palette["accent"], "width": 1.5, "dash": "dash"},
                 ))
                 fig_ratio.update_layout(
-                    template="plotly_white",
                     height=430,
                     margin={"l": 12, "r": 12, "t": 25, "b": 12},
-                    paper_bgcolor="#ffffff",
-                    plot_bgcolor="#ffffff",
                     legend={"orientation": "h", "y": 1.08, "x": 0},
                     xaxis={"showgrid": False, "title": None},
                     yaxis={
                         "showgrid": True,
-                        "gridcolor": "#f0e9ff",
                         "title": f"Rasio {coin_a_label} / {coin_b_label}",
                     },
                 )
+                ui.apply_plotly_theme(fig_ratio, dark_mode)
                 with st.container(border=True):
                     st.plotly_chart(
                         fig_ratio,
@@ -808,7 +800,7 @@ elif current_page == "trading-journal":
         if trades:
             df_trades = pd.DataFrame(trades)
             df_trades["trade_time"] = pd.to_datetime(df_trades["trade_time"]).dt.date
-            st.dataframe(df_trades[["trade_time", "symbol", "side", "amount", "price_usd"]], width='stretch', hide_index=True)
+            st.dataframe(ui.style_dataframe(df_trades[["trade_time", "symbol", "side", "amount", "price_usd"]], dark_mode), width='stretch', hide_index=True)
             if st.button("🗑️ Hapus Semua Transaksi", type="secondary"):
                 db.delete_all_user_trades(user.id)
                 st.rerun()
@@ -862,7 +854,7 @@ elif current_page == "price-alerts":
                 }
                 for alert in alerts
             ])
-            st.dataframe(alert_df, width='stretch', hide_index=True)
+            st.dataframe(ui.style_dataframe(alert_df, dark_mode), width='stretch', hide_index=True)
         else:
             st.info("Belum ada alert aktif.")
 
@@ -923,16 +915,21 @@ elif current_page == "portfolio":
                     "Nilai Kini": pf_df["current_value"].map(lambda v: formatting.format_money(v, currency)),
                     "P&L": pf_df["pnl"].map(lambda v: formatting.format_money(v, currency)),
                 })
-                st.dataframe(display_df, width='stretch', hide_index=True)
+                st.dataframe(ui.style_dataframe(display_df, dark_mode), width='stretch', hide_index=True)
 
             strategy_df = pf_df.groupby("strategy_tag", as_index=False)["current_value"].sum()
             fig = px.pie(
                 strategy_df,
                 values="current_value",
                 names="strategy_tag",
-                color_discrete_sequence=["#7c3aed", "#9d5cf5", "#c4a1fa"],
+                color_discrete_sequence=[
+                    theme_palette["accent"],
+                    theme_palette["accent_secondary"],
+                    theme_palette["accent_tertiary"],
+                ],
                 title="Alokasi Portofolio per Strategi",
             )
+            ui.apply_plotly_theme(fig, dark_mode)
             st.plotly_chart(fig, width='stretch')
 
     if user_profile.get("subscription_tier", "free").lower() != "premium":
@@ -1015,7 +1012,12 @@ elif current_page == "watchlist":
             
         if current_watchlist:
             wl_df = market_df[market_df["id"].isin(current_watchlist)].copy()
-            st.dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), width='stretch', hide_index=True)
+            st.dataframe(ui.style_dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), dark_mode), width='stretch', hide_index=True)
+
+elif current_page == "wallet":
+    from chainscope.wallet_component import render_personal_wallet
+
+    render_personal_wallet(dark_mode=dark_mode)
 
 elif current_page == "admin-panel" and is_dev:
     st.markdown(
@@ -1032,7 +1034,7 @@ elif current_page == "admin-panel" and is_dev:
                 df_users["subscription_end"] = df_users["subscription_end"].fillna("—").str[:10]
                 
             display_cols = ["email", "role", "subscription_tier", "subscription_end"]
-            st.dataframe(df_users[display_cols].rename(columns={"email": "Email", "role": "Role", "subscription_tier": "Plan", "subscription_end": "Berakhir Pada"}), width='stretch', hide_index=True)
+            st.dataframe(ui.style_dataframe(df_users[display_cols].rename(columns={"email": "Email", "role": "Role", "subscription_tier": "Plan", "subscription_end": "Berakhir Pada"}), dark_mode), width='stretch', hide_index=True)
             
             st.markdown("---")
             st.markdown("### Kelola User")
