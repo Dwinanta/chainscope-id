@@ -148,9 +148,21 @@ if "language" not in st.session_state:
 def cached_market_data(vs_currency: str) -> pd.DataFrame:
     return api.fetch_market_data(vs_currency, 250)
 
+@st.cache_data(ttl=config.CACHE_TTL_SECONDS, max_entries=256, show_spinner=False)
+def cached_market_data_for_ids(
+    vs_currency: str,
+    coin_ids: tuple[str, ...],
+) -> pd.DataFrame:
+    return api.fetch_market_data_for_ids(vs_currency, coin_ids)
+
 @st.cache_data(ttl=86400, show_spinner=False)
-def cached_all_coins() -> list[dict[str, str]]:
-    return api.fetch_all_coins()
+def cached_all_coins() -> pd.DataFrame:
+    coins = pd.DataFrame(api.fetch_all_coins())
+    if not coins.empty:
+        coins["id"] = coins["id"].astype(str)
+        coins["symbol_upper"] = coins["symbol"].astype(str).str.upper()
+        coins["label"] = coins["name"] + " (" + coins["symbol_upper"] + ")"
+    return coins
 
 @st.cache_data(ttl=300, show_spinner=False)
 def cached_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:
@@ -169,21 +181,9 @@ def cached_crypto_news() -> list[dict[str, str]]:
     return api.fetch_crypto_news(limit=5)
 
 @st.cache_data(ttl=config.CACHE_TTL_SECONDS, show_spinner=False)
-def cached_usd_currency_rate(currency: str) -> float:
-    """Return units of the selected currency per USD using CoinGecko prices."""
-    target_currency = currency.lower()
-    if target_currency == "usd":
-        return 1.0
-    df_usd = api.fetch_market_data("usd", 1)
-    df_target = api.fetch_market_data(target_currency, 1)
-    if df_usd.empty or df_target.empty:
-        raise api.ChainScopeAPIError("Kurs mata uang tidak tersedia dari CoinGecko.")
-
-    usd_price = float(df_usd.iloc[0]["current_price"])
-    target_price = float(df_target.iloc[0]["current_price"])
-    if usd_price <= 0 or target_price <= 0:
-        raise api.ChainScopeAPIError("Kurs mata uang dari CoinGecko tidak valid.")
-    return target_price / usd_price
+def cached_usd_currency_rate(currency: str) -> tuple[float, str]:
+    """Return the cached USD rate and the time it was last fetched."""
+    return api.fetch_usd_currency_rate(currency), datetime.now(timezone.utc).isoformat()
 
 # 4. SIDEBAR & NAVIGASI
 if "current_page" not in st.session_state:
@@ -213,24 +213,30 @@ with st.sidebar:
     )
 
     menu_config = {
-        "market-overview": "🏠 Market Overview",
-        "market-data": "📊 Market Data",
-        "relative-strategy": "📊 Strategi Relatif",
-        "trading-journal": "📒 Trading Journal",
-        "price-alerts": "🔔 Price Alerts",
-        "pdf-report": "📄 Laporan PDF",
-        "technical-analysis": "📉 Technical Analysis",
-        "portfolio": "💼 Portfolio",
-        "converter": "💱 Converter",
-        "watchlist": "⭐ Watchlist",
-        "wallet": "💰 Personal Wallet",
+        "market-overview": ("Market Overview", "dashboard"),
+        "market-data": ("Market Data", "candlestick_chart"),
+        "relative-strategy": ("Strategi Relatif", "compare_arrows"),
+        "trading-journal": ("Trading Journal", "receipt_long"),
+        "price-alerts": ("Price Alerts", "notifications_active"),
+        "pdf-report": ("Laporan PDF", "description"),
+        "technical-analysis": ("Technical Analysis", "show_chart"),
+        "portfolio": ("Portfolio", "account_balance_wallet"),
+        "converter": ("Converter", "currency_exchange"),
+        "watchlist": ("Watchlist", "star"),
+        "wallet": ("Personal Wallet", "account_balance"),
     }
     if is_dev:
-        menu_config["admin-panel"] = "👑 Admin Panel"
+        menu_config["admin-panel"] = ("Admin Panel", "admin_panel_settings")
 
-    for url_key, display_name in menu_config.items():
+    for url_key, (display_name, icon_name) in menu_config.items():
         is_active = (st.session_state.current_page == url_key)
-        if st.button(config.translate(language, display_name), width='stretch', key=f"btn_{url_key}", type="primary" if is_active else "secondary"):
+        if st.button(
+            config.translate(language, display_name),
+            icon=f":material/{icon_name}:",
+            width="stretch",
+            key=f"btn_{url_key}",
+            type="primary" if is_active else "secondary",
+        ):
             st.session_state.current_page = url_key
             st.rerun()
 
@@ -239,34 +245,135 @@ with st.sidebar:
         options=list(config.CURRENCY_OPTIONS),
         format_func=lambda code: config.CURRENCY_OPTIONS[code]["label"],
     )
+    st.markdown("<hr class='sidebar-divider'>", unsafe_allow_html=True)
+    safe_email = escape(str(user.email))
+    profile_initial = escape(str(user.email)[:1].upper() or "C")
+    admin_badge = (
+        "<span class='profile-badge admin-badge'>ADMIN</span>" if is_dev else ""
+    )
+    st.markdown(
+        "<div class='sidebar-profile'>"
+        f"<div class='sidebar-profile-avatar'>{profile_initial}</div>"
+        "<div class='sidebar-profile-copy'>"
+        f"<strong>{safe_email}</strong>"
+        f"<span class='profile-badge'>{escape(sub_tier.upper())}</span>"
+        f"{admin_badge}</div></div>",
+        unsafe_allow_html=True,
+    )
 
 ui.apply_theme(dark_mode)
 
 current_page = st.session_state.current_page
 theme_palette = ui.get_theme_palette(dark_mode)
 
-# 5. AMBIL DATA PASAR HANYA UNTUK HALAMAN YANG MEMAKAINYA
+# 5. AMBIL DATA YANG DIPERLUKAN HALAMAN AKTIF
 data_source = "LIVE"
-market_df = pd.DataFrame()
-if current_page != "wallet":
+market_df = pd.DataFrame(columns=["id", "symbol", "name", "current_price", "image"])
+catalog_df = pd.DataFrame()
+watchlist_ids = []
+portfolio_trades = []
+portfolio_positions = pd.DataFrame()
+journal_trades = []
+journal_has_more = False
+journal_page_size = 100
+journal_page = max(0, int(st.session_state.get("journal_page", 0)))
+user_alerts = []
+data_error = None
+
+if current_page == "watchlist":
+    watchlist_ids = db.get_user_watchlist(user.id)
+    try:
+        catalog_df = cached_all_coins()
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+    try:
+        watchlist_prices = cached_market_data_for_ids(
+            currency, tuple(sorted(set(watchlist_ids)))
+        )
+    except api.ChainScopeAPIError as exc:
+        watchlist_prices = pd.DataFrame(columns=["id", "current_price", "image"])
+        data_error = str(exc)
+    if not catalog_df.empty:
+        watched_coins = catalog_df[catalog_df["id"].isin(watchlist_ids)].copy()
+        market_df = watched_coins.merge(
+            watchlist_prices[["id", "current_price", "image"]]
+            if {"id", "current_price", "image"}.issubset(watchlist_prices.columns)
+            else pd.DataFrame(columns=["id", "current_price", "image"]),
+            on="id",
+            how="left",
+        )
+        market_df["image"] = market_df["image"].fillna("")
+    elif not watchlist_prices.empty:
+        market_df = watchlist_prices.copy()
+elif current_page == "portfolio":
+    portfolio_trades = db.get_all_user_trades(user.id)
+    portfolio_positions = journal_calc.calculate_portfolio_from_trades(portfolio_trades)
+    position_ids = (
+        tuple(sorted(set(portfolio_positions["coin_id"].dropna().astype(str))))
+        if not portfolio_positions.empty
+        else ()
+    )
+    try:
+        market_df = cached_market_data_for_ids(currency, position_ids)
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+elif current_page == "trading-journal":
+    try:
+        journal_trades, journal_has_more = db.get_user_trades_page(
+            user.id,
+            page_size=journal_page_size,
+            offset=journal_page * journal_page_size,
+        )
+        journal_coin_ids = tuple(sorted({
+            str(trade["coin_id"]) for trade in journal_trades if trade.get("coin_id")
+        }))
+        market_df = cached_market_data_for_ids(currency, journal_coin_ids)
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+    try:
+        catalog_df = cached_all_coins()
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+elif current_page == "price-alerts":
+    try:
+        user_alerts = db.get_user_alerts(user.id)
+        alert_coin_ids = tuple(sorted({
+            str(alert["coin_id"]) for alert in user_alerts if alert.get("coin_id")
+        }))
+        market_df = cached_market_data_for_ids(currency, alert_coin_ids)
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+    try:
+        catalog_df = cached_all_coins()
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+elif current_page == "converter":
     try:
         market_df = cached_market_data(currency)
-    except api.ChainScopeAPIError:
-        st.error("Gagal mengambil data dari CoinGecko.")
-        st.stop()
-
-    market_df = market_df.copy()
+    except api.ChainScopeAPIError as exc:
+        data_error = str(exc)
+elif current_page != "wallet":
     try:
-        all_coins = pd.DataFrame(cached_all_coins())
-    except api.ChainScopeAPIError:
-        st.error("Gagal mengambil data dari CoinGecko.")
+        market_df = cached_market_data(currency)
+        all_coins = cached_all_coins()
+        if not all_coins.empty:
+            market_df = api.merge_market_and_coin_list(market_df, all_coins)
+    except api.ChainScopeAPIError as exc:
+        st.error(f"Gagal mengambil data dari CoinGecko: {exc}")
         st.stop()
 
-    if not all_coins.empty:
-        market_df = api.merge_market_and_coin_list(market_df, all_coins)
+if data_error:
+    st.warning(f"Sebagian data eksternal tidak tersedia: {data_error}")
 
+if not market_df.empty:
     market_df["symbol_upper"] = market_df["symbol"].astype(str).str.upper()
     market_df["label"] = market_df["name"] + " (" + market_df["symbol_upper"] + ")"
+
+coin_image_by_id = (
+    dict(zip(market_df["id"], market_df["image"].fillna("")))
+    if "image" in market_df.columns and "id" in market_df.columns
+    else {}
+)
 
 # ===========================================================================
 # ROUTING HALAMAN
@@ -278,7 +385,10 @@ if current_page == "market-overview":
             f"<h1>{config.translate(language, 'Market Overview')}</h1>",
             unsafe_allow_html=True,
         )
-        st.markdown("<p style='font-size:0.9rem; margin-top:5px;'>Real-time crypto market data and insights</p>", unsafe_allow_html=True)
+        st.markdown(
+            "<p class='page-subtitle'>LIVE MARKET DATA · PRICES AND INSIGHTS</p>",
+            unsafe_allow_html=True,
+        )
     with col_search:
         search_query = st.text_input("Search", placeholder="🔍 Search coins...", label_visibility="collapsed")
     with col_profile:
@@ -290,39 +400,68 @@ if current_page == "market-overview":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    top4_df = market_df.head(4)
+    tracked_market_cap = pd.to_numeric(
+        market_df.get("market_cap", pd.Series(dtype=float)), errors="coerce"
+    ).sum()
+    tracked_volume = pd.to_numeric(
+        market_df.get("total_volume", pd.Series(dtype=float)), errors="coerce"
+    ).sum()
+    bitcoin_market_cap = pd.to_numeric(
+        market_df.loc[market_df["id"] == "bitcoin", "market_cap"], errors="coerce"
+    ).sum()
+    tracked_btc_share = (
+        bitcoin_market_cap / tracked_market_cap * 100 if tracked_market_cap else 0
+    )
+    overview_metrics = [
+        ("Tracked market cap", formatting.format_money(tracked_market_cap, currency), "Top 250 assets"),
+        ("Tracked 24h volume", formatting.format_money(tracked_volume, currency), "Top 250 assets"),
+        ("BTC share", f"{tracked_btc_share:.1f}%", "Of tracked market cap"),
+        ("Assets tracked", f"{len(market_df):,}", "CoinGecko market feed"),
+    ]
     cols = st.columns(4)
-    for col, (_, row) in zip(cols, top4_df.iterrows()):
+    for col, (label, value, caption) in zip(cols, overview_metrics):
         with col:
             with st.container(border=True):
-                color = (
-                    theme_palette["positive_text"]
-                    if row["price_change_percentage_24h"] >= 0
-                    else theme_palette["negative_text"]
-                )
-                icon = "▲" if row['price_change_percentage_24h'] >= 0 else "▼"
-                c_left, c_right = st.columns([1.2, 1])
-                with c_left:
-                    st.markdown(f"""
-                    <div style='display:flex; gap:8px; align-items:center;'>
-                        <img src="{row['image']}" width="24" height="24">
-                        <div>
-                            <div style='font-weight:700; font-size:0.85rem; color:var(--cs-primary-text);'>{row['name']}</div>
-                            <div style='font-size:0.7rem; color:var(--cs-secondary-text);'>{row['symbol_upper']}</div>
-                        </div>
-                    </div>
-                    <div style='margin-top:15px;'>
-                        <div style='font-weight:800; font-size:1.1rem; color:var(--cs-primary-text);'>{formatting.format_money(row['current_price'], currency)}</div>
-                        <div style='color:{color}; font-size:0.8rem; font-weight:600;'>{icon} {row['price_change_percentage_24h']:.2f}%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with c_right:
-                    sparkline_prices = row.get("sparkline_in_7d", {}).get("price", [])
-                    if sparkline_prices:
-                        fig = go.Figure(go.Scatter(y=sparkline_prices, mode='lines', line=dict(color=color, width=1.5)))
-                        fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=60, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False))
-                        ui.apply_plotly_theme(fig, dark_mode)
-                        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+                st.caption(label.upper())
+                st.markdown(f"<div class='overview-metric'>{value}</div>", unsafe_allow_html=True)
+                st.caption(caption)
+
+    st.markdown("### Market watch")
+    overview_table = search.filter_coins(market_df, search_query).head(10)
+    display_market_df = pd.DataFrame({
+        "Logo": overview_table["image"],
+        "Asset": overview_table["name"],
+        "Symbol": overview_table["symbol_upper"],
+        "7d trend": overview_table["sparkline_in_7d"].map(
+            lambda value: value.get("price", [])
+            if isinstance(value, dict) else []
+        ),
+        "Price": overview_table["current_price"].map(
+            lambda value: "—" if pd.isna(value)
+            else formatting.format_money(value, currency)
+        ),
+        "24h": overview_table["price_change_percentage_24h"].map(
+            lambda value: "—" if pd.isna(value) else f"{value:+.2f}%"
+        ),
+        "Market cap": overview_table["market_cap"].map(
+            lambda value: "—" if pd.isna(value)
+            else formatting.format_money(value, currency)
+        ),
+        "24h volume": overview_table["total_volume"].map(
+            lambda value: "—" if pd.isna(value)
+            else formatting.format_money(value, currency)
+        ),
+    })
+    st.dataframe(
+        ui.style_dataframe(display_market_df, dark_mode),
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Logo": st.column_config.ImageColumn("Logo", width="small"),
+            "Asset": st.column_config.TextColumn("Asset", width="medium"),
+            "7d trend": st.column_config.LineChartColumn("7d trend", width="medium"),
+        },
+    )
 
     try:
         fear_greed = cached_fear_greed_index()
@@ -443,12 +582,32 @@ if current_page == "market-overview":
         with st.container(border=True):
             gainers = market_df.sort_values("price_change_percentage_24h", ascending=False).head(3)
             losers = market_df.sort_values("price_change_percentage_24h", ascending=True).head(3)
-            html = "<p style='font-weight:700; font-size:0.95rem; color:var(--cs-primary-text); margin-bottom:10px;'>Top Gainers ⚡</p>"
+            html = "<p style='font-weight:700; font-size:0.95rem; color:var(--cs-primary-text); margin-bottom:10px;'>Top Gainers</p>"
             for _, r in gainers.iterrows():
-                html += f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><div style='display:flex; gap:6px;'><img src='{r['image']}' width='16'><div><span style='font-size:0.75rem; font-weight:600;'>{r['symbol_upper']}</span><br><span style='font-size:0.65rem;'>{formatting.format_money(r['current_price'], currency)}</span></div></div><span class='text-green'>+{r['price_change_percentage_24h']:.2f}%</span></div>"
-            html += "<hr style='margin:8px 0; border-color:var(--cs-border);'><p style='font-weight:700; font-size:0.95rem; color:var(--cs-primary-text); margin-bottom:10px;'>Top Losers ⚡</p>"
+                logo = ui.render_coin_logo(
+                    str(r["id"]), r.get("image"), 18, str(r["symbol_upper"])
+                )
+                html += (
+                    "<div class='mover-row'><div class='mover-asset'>"
+                    f"{logo}<div><span class='mover-symbol'>"
+                    f"{escape(str(r['symbol_upper']))}</span><br>"
+                    f"<span class='mover-price'>{formatting.format_money(r['current_price'], currency)}</span>"
+                    f"</div></div><span class='text-green'>"
+                    f"+{r['price_change_percentage_24h']:.2f}%</span></div>"
+                )
+            html += "<hr style='margin:8px 0; border-color:var(--cs-border);'><p style='font-weight:700; font-size:0.95rem; color:var(--cs-primary-text); margin-bottom:10px;'>Top Losers</p>"
             for _, r in losers.iterrows():
-                html += f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><div style='display:flex; gap:6px;'><img src='{r['image']}' width='16'><div><span style='font-size:0.75rem; font-weight:600;'>{r['symbol_upper']}</span><br><span style='font-size:0.65rem;'>{formatting.format_money(r['current_price'], currency)}</span></div></div><span class='text-red'>{r['price_change_percentage_24h']:.2f}%</span></div>"
+                logo = ui.render_coin_logo(
+                    str(r["id"]), r.get("image"), 18, str(r["symbol_upper"])
+                )
+                html += (
+                    "<div class='mover-row'><div class='mover-asset'>"
+                    f"{logo}<div><span class='mover-symbol'>"
+                    f"{escape(str(r['symbol_upper']))}</span><br>"
+                    f"<span class='mover-price'>{formatting.format_money(r['current_price'], currency)}</span>"
+                    f"</div></div><span class='text-red'>"
+                    f"{r['price_change_percentage_24h']:.2f}%</span></div>"
+                )
             st.markdown(html, unsafe_allow_html=True)
 
 elif current_page == "market-data":
@@ -510,8 +669,13 @@ elif current_page == "market-data":
             
             display_df = pd.DataFrame({
                 "#": range(1, len(table_source) + 1),
+                "Logo": table_source["image"],
                 "Coin": table_source["name"],
                 "Ticker": table_source["symbol_upper"],
+                "7d trend": table_source["sparkline_in_7d"].map(
+                    lambda value: value.get("price", [])
+                    if isinstance(value, dict) else []
+                ),
                 "Price": table_source["current_price"].map(
                     lambda value: "—" if pd.isna(value) or value == 0
                     else formatting.format_money(value, currency)
@@ -529,7 +693,21 @@ elif current_page == "market-data":
                 ),
             })
             
-            event = st.dataframe(ui.style_dataframe(display_df, dark_mode), width='stretch', hide_index=True, on_select="rerun", selection_mode="single-row", column_config={"Coin": st.column_config.TextColumn("Coin", width="medium"), "24h %": st.column_config.TextColumn("24h %", width="small")})
+            event = st.dataframe(
+                ui.style_dataframe(display_df, dark_mode),
+                width="stretch",
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                column_config={
+                    "Logo": st.column_config.ImageColumn("Logo", width="small"),
+                    "Coin": st.column_config.TextColumn("Coin", width="medium"),
+                    "24h %": st.column_config.TextColumn("24h %", width="small"),
+                    "7d trend": st.column_config.LineChartColumn(
+                        "7d trend", width="medium"
+                    ),
+                },
+            )
             
             if len(event.selection.rows) > 0:
                 selected_idx = event.selection.rows[0]
@@ -619,6 +797,18 @@ elif current_page == "relative-strategy":
                 format_func=lambda coin_id: labels_by_id[coin_id],
                 key="relative_coin_b",
             )
+
+    selected_a = coin_options.loc[coin_options["id"] == coin_a_id].iloc[0]
+    selected_b = coin_options.loc[coin_options["id"] == coin_b_id].iloc[0]
+    st.markdown(
+        "<div class='selected-assets'>"
+        f"{ui.render_coin_logo(coin_a_id, selected_a.get('image'), 24, selected_a['symbol_upper'])}"
+        f"<strong>{escape(str(selected_a['label']))}</strong>"
+        "<span class='asset-pair-divider'>/</span>"
+        f"{ui.render_coin_logo(coin_b_id, selected_b.get('image'), 24, selected_b['symbol_upper'])}"
+        f"<strong>{escape(str(selected_b['label']))}</strong></div>",
+        unsafe_allow_html=True,
+    )
 
     if coin_a_id == coin_b_id:
         st.info("Pilih dua koin yang berbeda untuk menghitung rasio.")
@@ -713,6 +903,19 @@ elif current_page == "technical-analysis":
     selected_symbol = (
         selected_rows.iloc[0]["symbol_upper"] if not selected_rows.empty else "BTCUSDT"
     )
+    selected_name = (
+        str(selected_rows.iloc[0]["name"]) if not selected_rows.empty else selected_symbol
+    )
+    selected_image = (
+        selected_rows.iloc[0].get("image", "") if not selected_rows.empty else ""
+    )
+    st.markdown(
+        "<div class='selected-assets'>"
+        f"{ui.render_coin_logo(selected_coin_id, selected_image, 32, selected_symbol)}"
+        f"<strong>{escape(selected_name)}</strong>"
+        f"<span class='asset-symbol'>{escape(selected_symbol)}</span></div>",
+        unsafe_allow_html=True,
+    )
     chart_coins = (
         market_df[["id", "symbol_upper", "name", "image"]]
         .fillna("")
@@ -770,24 +973,48 @@ elif current_page == "trading-journal":
     with col_manual:
         with st.container(border=True):
             st.markdown("#### Input Manual")
-            with st.form("manual_trade", clear_on_submit=True):
-                t_coin = st.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
-                t_side = st.selectbox("Aksi", ["buy", "sell"])
-                t_date = st.date_input("Tanggal", datetime.now())
-                t_amount = st.number_input("Jumlah Koin", min_value=0.00000001, format="%.8f")
-                t_price = st.number_input("Harga (USD)", min_value=0.01)
-                t_strategy = st.selectbox("Strategi", ["Swing", "Scalping", "Hedge", "Long-term"])
-                if st.form_submit_button("Simpan Transaksi", width='stretch'):
-                    sym = market_df[market_df["id"]==t_coin]["symbol_upper"].values[0]
-                    db.add_trade(user.id, t_coin, sym, t_side, t_amount, t_price, str(t_date), strategy_tag=t_strategy)
-                    st.success("Transaksi tersimpan!")
-                    st.rerun()
+            if catalog_df.empty:
+                st.info("Katalog koin tidak tersedia; input transaksi belum dapat digunakan.")
+            else:
+                coin_labels = dict(zip(catalog_df["id"], catalog_df["label"]))
+                coin_symbols = dict(zip(catalog_df["id"], catalog_df["symbol_upper"]))
+                with st.form("manual_trade", clear_on_submit=True):
+                    t_coin = st.selectbox(
+                        "Koin",
+                        catalog_df["id"].tolist(),
+                        format_func=lambda coin_id: coin_labels[coin_id],
+                    )
+                    t_side = st.selectbox("Aksi", ["buy", "sell"])
+                    t_date = st.date_input("Tanggal", datetime.now())
+                    t_amount = st.number_input(
+                        "Jumlah Koin", min_value=0.00000001, format="%.8f"
+                    )
+                    t_price = st.number_input("Harga (USD)", min_value=0.01)
+                    t_strategy = st.selectbox(
+                        "Strategi", ["Swing", "Scalping", "Hedge", "Long-term"]
+                    )
+                    if st.form_submit_button("Simpan Transaksi", width='stretch'):
+                        db.add_trade(
+                            user.id,
+                            t_coin,
+                            coin_symbols[t_coin],
+                            t_side,
+                            t_amount,
+                            t_price,
+                            str(t_date),
+                            strategy_tag=t_strategy,
+                        )
+                        st.session_state["journal_page"] = 0
+                        st.success("Transaksi tersimpan!")
+                        st.rerun()
 
     with col_csv:
         with st.container(border=True):
             st.markdown("#### Import CSV")
             uploaded = st.file_uploader("Upload CSV", type=["csv"], label_visibility="collapsed")
-            if uploaded:
+            if uploaded and catalog_df.empty:
+                st.info("Katalog koin tidak tersedia; CSV belum dapat diproses.")
+            elif uploaded:
                 try:
                     df_csv = pd.read_csv(uploaded)
                     map_coin = st.selectbox("Kolom Koin", df_csv.columns)
@@ -796,27 +1023,72 @@ elif current_page == "trading-journal":
                     map_price = st.selectbox("Kolom Harga", df_csv.columns)
                     map_date = st.selectbox("Kolom Tanggal", df_csv.columns)
                     if st.button("Proses CSV", width='stretch'):
-                        success = 0
+                        pending_trades = []
                         for _, row in df_csv.iterrows():
                             c_id = str(row[map_coin]).lower()
-                            valid = market_df[market_df["id"].str.contains(c_id, case=False) | market_df["symbol"].str.contains(c_id, case=False)]
+                            valid = catalog_df[
+                                catalog_df["id"].str.contains(c_id, case=False)
+                                | catalog_df["symbol"].str.contains(c_id, case=False)
+                            ]
                             if not valid.empty:
-                                db.add_trade(user.id, valid.iloc[0]["id"], valid.iloc[0]["symbol_upper"], str(row[map_side]).lower(), float(row[map_amount]), float(row[map_price]), str(row[map_date]), source="csv")
-                                success += 1
-                        st.success(f"Import {success} transaksi!")
+                                coin = valid.iloc[0]
+                                pending_trades.append({
+                                    "coin_id": coin["id"],
+                                    "symbol": coin["symbol_upper"],
+                                    "side": str(row[map_side]).lower(),
+                                    "amount": float(row[map_amount]),
+                                    "price_usd": float(row[map_price]),
+                                    "trade_time": str(row[map_date]),
+                                    "source": "csv",
+                                })
+                        db.add_trades(user.id, pending_trades)
+                        st.session_state["journal_page"] = 0
+                        st.success(f"Import {len(pending_trades)} transaksi!")
                         st.rerun()
                 except Exception as e: st.error(f"Error: {e}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown("#### Riwayat Transaksi")
-        trades = db.get_user_trades(user.id)
+        trades = journal_trades
+        previous_col, page_col, next_col = st.columns([1, 2, 1])
+        if previous_col.button(
+            "Transaksi lebih baru",
+            disabled=journal_page == 0,
+            key="journal_previous_page",
+        ):
+            st.session_state["journal_page"] = journal_page - 1
+            st.rerun()
+        page_col.caption(f"Halaman {journal_page + 1}")
+        if next_col.button(
+            "Transaksi lebih lama",
+            disabled=not journal_has_more,
+            key="journal_next_page",
+        ):
+            st.session_state["journal_page"] = journal_page + 1
+            st.rerun()
         if trades:
             df_trades = pd.DataFrame(trades)
             df_trades["trade_time"] = pd.to_datetime(df_trades["trade_time"]).dt.date
-            st.dataframe(ui.style_dataframe(df_trades[["trade_time", "symbol", "side", "amount", "price_usd"]], dark_mode), width='stretch', hide_index=True)
+            df_trades["Logo"] = (
+                df_trades["coin_id"].map(coin_image_by_id).fillna("")
+                if "coin_id" in df_trades
+                else ""
+            )
+            st.dataframe(
+                ui.style_dataframe(
+                    df_trades[
+                        ["Logo", "trade_time", "symbol", "side", "amount", "price_usd"]
+                    ],
+                    dark_mode,
+                ),
+                width="stretch",
+                hide_index=True,
+                column_config={"Logo": st.column_config.ImageColumn("Logo", width="small")},
+            )
             if st.button("🗑️ Hapus Semua Transaksi", type="secondary"):
                 db.delete_all_user_trades(user.id)
+                st.session_state["journal_page"] = 0
                 st.rerun()
         else:
             st.info("Belum ada transaksi.")
@@ -827,28 +1099,41 @@ elif current_page == "price-alerts":
         unsafe_allow_html=True,
     )
 
-    active_alert_count = db.count_user_alerts(user.id) if sub_tier == "Free" else 0
+    alerts = user_alerts
+    active_alert_count = (
+        sum(bool(alert.get("is_active", True)) for alert in alerts)
+        if sub_tier == "Free"
+        else 0
+    )
     if sub_tier == "Free" and active_alert_count >= 1:
         st.info(
             "Fitur Alert dibatasi 1 untuk user Free. "
             "Upgrade ke Premium untuk alert tanpa batas."
         )
+    elif catalog_df.empty:
+        st.info("Katalog koin tidak tersedia; alert baru belum dapat dibuat.")
     else:
+        coin_labels = dict(zip(catalog_df["id"], catalog_df["label"]))
+        coin_symbols = dict(zip(catalog_df["id"], catalog_df["symbol_upper"]))
         with st.container(border=True):
             st.markdown("#### Buat Alert Baru")
             with st.form("new_alert", clear_on_submit=True):
                 c1, c2, c3 = st.columns(3)
-                a_coin = c1.selectbox("Koin", market_df["id"].tolist(), format_func=lambda x: market_df[market_df["id"]==x]["label"].values[0])
+                a_coin = c1.selectbox(
+                    "Koin",
+                    catalog_df["id"].tolist(),
+                    format_func=lambda coin_id: coin_labels[coin_id],
+                )
                 a_cond = c2.selectbox("Kondisi", ["above", "below"])
                 a_price = c3.number_input("Target Harga", min_value=0.01)
                 if st.form_submit_button("Tambah Alert", width='stretch'):
-                    if sub_tier == "Free" and db.count_user_alerts(user.id) >= 1:
+                    if sub_tier == "Free" and active_alert_count >= 1:
                         st.info(
                             "Fitur Alert dibatasi 1 untuk user Free. "
                             "Upgrade ke Premium untuk alert tanpa batas."
                         )
                     else:
-                        sym = market_df[market_df["id"]==a_coin]["symbol_upper"].values[0]
+                        sym = coin_symbols[a_coin]
                         db.add_alert(user.id, a_coin, sym, a_cond, a_price, currency)
                         st.success("Alert dibuat!")
                         st.rerun()
@@ -856,10 +1141,10 @@ elif current_page == "price-alerts":
     st.markdown("<br>", unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown("#### Daftar Alert")
-        alerts = db.get_user_alerts(user.id)
         if alerts:
             alert_df = pd.DataFrame([
                 {
+                    "Logo": coin_image_by_id.get(alert.get("coin_id"), ""),
                     "Koin": alert["symbol"],
                     "Kondisi": "Di atas" if alert["condition"] == "above" else "Di bawah",
                     "Target": formatting.format_money(alert["target_price"], alert["currency"]),
@@ -868,7 +1153,12 @@ elif current_page == "price-alerts":
                 }
                 for alert in alerts
             ])
-            st.dataframe(ui.style_dataframe(alert_df, dark_mode), width='stretch', hide_index=True)
+            st.dataframe(
+                ui.style_dataframe(alert_df, dark_mode),
+                width="stretch",
+                hide_index=True,
+                column_config={"Logo": st.column_config.ImageColumn("Logo", width="small")},
+            )
         else:
             st.info("Belum ada alert aktif.")
 
@@ -891,20 +1181,21 @@ elif current_page == "portfolio":
         f"<h1>{config.translate(language, 'Portfolio')}</h1>",
         unsafe_allow_html=True,
     )
-    trades = db.get_user_trades(user.id)
+    trades = portfolio_trades
     
     if not trades:
         st.info("Belum ada transaksi di Trading Journal.")
     else:
-        pf_df = journal_calc.calculate_portfolio_from_trades(trades)
+        pf_df = portfolio_positions.copy()
         if pf_df.empty:
             st.warning("Semua aset sudah terjual.")
         else:
             pf_df = pf_df.merge(market_df[["id", "current_price"]], left_on="coin_id", right_on="id", how="left")
+            pf_df["image"] = pf_df["coin_id"].map(coin_image_by_id).fillna("")
             try:
-                rate = cached_usd_currency_rate(currency)
-            except api.ChainScopeAPIError:
-                st.error("Gagal mengambil kurs mata uang dari CoinGecko.")
+                rate, _ = cached_usd_currency_rate(currency)
+            except api.ChainScopeAPIError as exc:
+                st.error(f"Gagal mengambil kurs mata uang dari CoinGecko: {exc}")
                 st.stop()
             
             pf_df["current_price"] = pf_df["current_price"].fillna(0)
@@ -923,13 +1214,19 @@ elif current_page == "portfolio":
             with st.container(border=True):
                 st.subheader("Rincian Aset")
                 display_df = pd.DataFrame({
+                    "Logo": pf_df["image"],
                     "Koin": pf_df["symbol"],
                     "Jumlah": pf_df["amount"].map(lambda x: f"{x:.4f}"),
                     "Harga Rata2": pf_df["avg_buy_price"].map(lambda v: formatting.format_money(v, currency)),
                     "Nilai Kini": pf_df["current_value"].map(lambda v: formatting.format_money(v, currency)),
                     "P&L": pf_df["pnl"].map(lambda v: formatting.format_money(v, currency)),
                 })
-                st.dataframe(ui.style_dataframe(display_df, dark_mode), width='stretch', hide_index=True)
+                st.dataframe(
+                    ui.style_dataframe(display_df, dark_mode),
+                    width="stretch",
+                    hide_index=True,
+                    column_config={"Logo": st.column_config.ImageColumn("Logo", width="small")},
+                )
 
             strategy_df = pf_df.groupby("strategy_tag", as_index=False)["current_value"].sum()
             fig = px.pie(
@@ -991,17 +1288,34 @@ elif current_page == "converter":
     )
     with st.container(border=True):
         try:
-            rate = cached_usd_currency_rate(currency)
-        except api.ChainScopeAPIError:
-            st.error("Gagal mengambil kurs mata uang dari CoinGecko.")
+            rate, rate_fetched_at = cached_usd_currency_rate(currency)
+        except api.ChainScopeAPIError as exc:
+            st.error(f"Gagal mengambil kurs mata uang dari CoinGecko: {exc}")
             st.stop()
-        price_map = converter.build_price_map(market_df, currency, rate)
+        priced_coins = market_df.loc[
+            pd.to_numeric(market_df["current_price"], errors="coerce") > 0
+        ].copy()
+        price_map = converter.build_price_map(priced_coins, currency, rate)
+        fetched_local = datetime.fromisoformat(rate_fetched_at).astimezone()
+        st.caption(
+            "Kurs fiat di-cache hingga 90 detik; terakhir diperbarui "
+            f"{fetched_local:%Y-%m-%d %H:%M:%S %Z}."
+        )
         col1, col2 = st.columns(2)
         fiat_assets = list(dict.fromkeys(["USD", currency]))
-        asset_options = fiat_assets + market_df["id"].tolist()
+        asset_options = fiat_assets + priced_coins["id"].tolist()
         selected_currency_index = fiat_assets.index(currency)
         from_asset = col1.selectbox("Dari:", asset_options)
         to_asset = col2.selectbox("Ke:", asset_options, index=selected_currency_index)
+        for asset_column, asset_id in ((col1, from_asset), (col2, to_asset)):
+            if asset_id in coin_image_by_id:
+                asset_row = priced_coins.loc[priced_coins["id"] == asset_id].iloc[0]
+                asset_column.markdown(
+                    "<div class='selected-assets'>"
+                    f"{ui.render_coin_logo(asset_id, asset_row.get('image'), 24, asset_row['symbol_upper'])}"
+                    f"<strong>{escape(str(asset_row['label']))}</strong></div>",
+                    unsafe_allow_html=True,
+                )
         amount = st.number_input("Jumlah:", min_value=0.0, value=1.0)
         res = converter.convert(amount, from_asset, to_asset, price_map)
         if res is not None:
@@ -1013,20 +1327,42 @@ elif current_page == "watchlist":
         unsafe_allow_html=True,
     )
     with st.container(border=True):
-        available_ids = market_df["id"].tolist()
-        current_watchlist = db.get_user_watchlist(user.id)
-        valid_default = [cid for cid in current_watchlist if cid in available_ids]
-        
-        selected_ids = st.multiselect("Pilih koin:", options=available_ids, default=valid_default, format_func=lambda cid: dict(zip(market_df["id"], market_df["label"])).get(cid, cid))
-        
-        if set(selected_ids) != set(current_watchlist):
-            db.clear_user_watchlist(user.id)
-            for cid in selected_ids: db.add_to_watchlist(user.id, cid)
-            st.rerun()
-            
+        current_watchlist = watchlist_ids
+        if catalog_df.empty:
+            st.info("Katalog koin tidak tersedia; daftar tersimpan tetap dapat dilihat.")
+        else:
+            available_ids = catalog_df["id"].tolist()
+            valid_default = [cid for cid in current_watchlist if cid in available_ids]
+            coin_labels = dict(zip(catalog_df["id"], catalog_df["label"]))
+            selected_ids = st.multiselect(
+                "Pilih koin:",
+                options=available_ids,
+                default=valid_default,
+                format_func=lambda coin_id: coin_labels.get(coin_id, coin_id),
+            )
+            if set(selected_ids) != set(current_watchlist):
+                db.sync_user_watchlist(user.id, current_watchlist, selected_ids)
+                st.rerun()
+
         if current_watchlist:
             wl_df = market_df[market_df["id"].isin(current_watchlist)].copy()
-            st.dataframe(ui.style_dataframe(wl_df[["name", "symbol_upper", "current_price"]].rename(columns={"name":"Nama", "symbol_upper":"Simbol", "current_price":"Harga"}), dark_mode), width='stretch', hide_index=True)
+            if not wl_df.empty:
+                wl_display_df = pd.DataFrame({
+                    "Logo": wl_df["image"],
+                    "Nama": wl_df["name"],
+                    "Simbol": wl_df["symbol_upper"],
+                    "Harga": wl_df["current_price"],
+                })
+                st.dataframe(
+                    ui.style_dataframe(wl_display_df, dark_mode),
+                    width="stretch",
+                    hide_index=True,
+                    column_config={"Logo": st.column_config.ImageColumn("Logo", width="small")},
+                )
+            else:
+                st.info("Koin tersimpan belum memiliki metadata yang tersedia.")
+        else:
+            st.info("Belum ada koin di Watchlist.")
 
 elif current_page == "wallet":
     from chainscope.wallet_component import render_personal_wallet

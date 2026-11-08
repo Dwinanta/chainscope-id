@@ -35,6 +35,18 @@ def test_price_map_supports_other_selected_currencies():
     assert prices["USD"] == pytest.approx(0.92)
 
 
+def test_price_map_ignores_missing_or_non_positive_market_prices():
+    df = pd.DataFrame([
+        {"id": "priced", "current_price": 12.0},
+        {"id": "unpriced", "current_price": 0.0},
+        {"id": "missing", "current_price": None},
+    ])
+
+    prices = converter.build_price_map(df, "USD", usd_currency_rate=1.0)
+
+    assert prices == {"USD": 1.0, "priced": 12.0}
+
+
 def test_convert_btc_to_eth():
     df = _mk_market_df()
     prices = converter.build_price_map(df, "USD", usd_currency_rate=1.0)

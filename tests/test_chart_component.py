@@ -174,11 +174,11 @@ def test_render_modern_chart_applies_dark_theme(monkeypatch):
 
     html = rendered["html"]
     assert "const IS_DARK_MODE = true;" in html
-    assert "--cs-main-background: linear-gradient(135deg, #080B14 0%, #0D1220 50%, #111827 100%);" in html
-    assert "--cs-plot-area-background: #0D1220;" in html
+    assert "--cs-main-background: linear-gradient(135deg, #0B0918 0%, #100D22 52%, #15102A 100%);" in html
+    assert "--cs-plot-area-background: #121027;" in html
     assert ".charts { background: var(--cs-plot-area-background); }" in html
-    assert '"grid": "rgba(148, 163, 184, 0.10)"' in html
-    assert '"muted": "#94A3B8"' in html
+    assert '"grid": "rgba(161, 161, 170, 0.12)"' in html
+    assert '"muted": "#A1A1AA"' in html
     assert 'ticks: { color: colors.muted' in html
     assert "grid: { color: colors.grid }" in html
     assert "backgroundColor: colors.tooltipBackground" in html

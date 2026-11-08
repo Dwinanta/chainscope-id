@@ -1,6 +1,7 @@
 """Klien API untuk ChainScope ID (CoinGecko & Indodax)."""
 
 import logging
+import math
 import time
 import pandas as pd
 import requests
@@ -38,6 +39,86 @@ def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
     if not isinstance(data, list) or not data:
         raise ChainScopeAPIError("Respons API kosong atau tidak sesuai format.")
     return pd.DataFrame(data)
+
+
+def fetch_market_data_for_ids(
+    vs_currency: str,
+    coin_ids: list[str] | tuple[str, ...],
+) -> pd.DataFrame:
+    """Fetch current market rows only for the requested coin IDs."""
+    ids = list(dict.fromkeys(coin_id for coin_id in coin_ids if coin_id))
+    if not ids:
+        return pd.DataFrame(columns=["id", "symbol", "name", "current_price", "image"])
+
+    url = f"{config.API_BASE}/coins/markets"
+    frames = []
+    try:
+        for start in range(0, len(ids), 250):
+            response = requests.get(
+                url,
+                params={
+                    "vs_currency": vs_currency.lower(),
+                    "ids": ",".join(ids[start : start + 250]),
+                },
+                timeout=config.REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, list):
+                raise ChainScopeAPIError("Respons data pasar tidak sesuai format.")
+            if data:
+                frames.append(pd.DataFrame(data))
+    except requests.exceptions.RequestException as exc:
+        raise ChainScopeAPIError(f"Gagal menghubungi CoinGecko: {exc}") from exc
+    except ValueError as exc:
+        raise ChainScopeAPIError(f"Respons bukan JSON yang valid: {exc}") from exc
+
+    if not frames:
+        return pd.DataFrame(columns=["id", "symbol", "name", "current_price", "image"])
+    market_data = pd.concat(frames, ignore_index=True)
+    for column in ("id", "symbol", "name", "current_price", "image"):
+        if column not in market_data:
+            market_data[column] = None
+    return market_data
+
+
+def fetch_usd_currency_rate(currency: str) -> float:
+    """Return units of the selected currency per USD using one targeted request."""
+    target_currency = currency.lower()
+    if target_currency == "usd":
+        return 1.0
+
+    try:
+        response = requests.get(
+            f"{config.API_BASE}/simple/price",
+            params={"ids": "bitcoin", "vs_currencies": f"usd,{target_currency}"},
+            timeout=config.REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.exceptions.RequestException as exc:
+        raise ChainScopeAPIError(f"Gagal menghubungi CoinGecko: {exc}") from exc
+    except ValueError as exc:
+        raise ChainScopeAPIError("Respons kurs mata uang bukan JSON yang valid.") from exc
+
+    bitcoin_prices = payload.get("bitcoin") if isinstance(payload, dict) else None
+    if not isinstance(bitcoin_prices, dict):
+        raise ChainScopeAPIError("CoinGecko tidak mengembalikan data kurs Bitcoin.")
+
+    usd_price = bitcoin_prices.get("usd")
+    target_price = bitcoin_prices.get(target_currency)
+    if (
+        not isinstance(usd_price, (int, float))
+        or isinstance(usd_price, bool)
+        or not isinstance(target_price, (int, float))
+        or isinstance(target_price, bool)
+        or not math.isfinite(usd_price)
+        or not math.isfinite(target_price)
+        or usd_price <= 0
+        or target_price <= 0
+    ):
+        raise ChainScopeAPIError("Data kurs mata uang dari CoinGecko tidak valid.")
+    return float(target_price / usd_price)
 
 
 def fetch_fear_greed_index() -> dict[str, str]:

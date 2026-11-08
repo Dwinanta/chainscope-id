@@ -15,7 +15,12 @@ def get_supabase() -> Client:
 
 def get_user_profile(user_id: str) -> dict:
     supabase = get_supabase()
-    res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+    res = (
+        supabase.table("profiles")
+        .select("role,subscription_tier,subscription_end")
+        .eq("id", user_id)
+        .execute()
+    )
     return res.data[0] if res.data else {}
 
 def upgrade_to_premium(user_id: str):
@@ -86,8 +91,84 @@ def get_user_trades(user_id: str, limit: int = 100):
     )
     return res.data
 
+
+@st.cache_data(ttl=30, max_entries=128, show_spinner=False)
+def get_user_trades_page(
+    user_id: str,
+    page_size: int = 100,
+    offset: int = 0,
+) -> tuple[list[dict], bool]:
+    """Fetch one user-scoped trade page and indicate whether more rows exist."""
+    if page_size <= 0 or offset < 0:
+        raise ValueError("Ukuran halaman dan offset transaksi tidak valid.")
+
+    response = (
+        get_supabase()
+        .table("trades")
+        .select("coin_id,symbol,side,amount,price_usd,trade_time,strategy_tag")
+        .eq("user_id", user_id)
+        .order("trade_time", desc=True)
+        .order("id", desc=True)
+        .range(offset, offset + page_size)
+        .execute()
+    )
+    rows = response.data
+    return rows[:page_size], len(rows) > page_size
+
+
+@st.cache_data(ttl=30, max_entries=32, show_spinner=False)
+def get_all_user_trades(user_id: str, page_size: int = 500) -> list[dict]:
+    """Fetch complete user trade history in bounded pages."""
+    if page_size <= 0:
+        raise ValueError("Ukuran halaman transaksi harus lebih besar dari nol.")
+
+    supabase = get_supabase()
+    trades = []
+    start = 0
+    while True:
+        response = (
+            supabase.table("trades")
+            .select("id,coin_id,symbol,side,amount,price_usd,trade_time,strategy_tag")
+            .eq("user_id", user_id)
+            .order("trade_time", desc=True)
+            .order("id", desc=True)
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        page = response.data
+        trades.extend(page)
+        if len(page) < page_size:
+            return trades
+        start += page_size
+
+
+def add_trades(user_id: str, trades: list[dict]) -> None:
+    """Insert a batch of normalized trades with one database request."""
+    if not trades:
+        return
+
+    rows = [
+        {
+            "user_id": user_id,
+            "coin_id": str(trade["coin_id"]).lower(),
+            "symbol": str(trade["symbol"]).upper(),
+            "side": str(trade["side"]).lower(),
+            "amount": trade["amount"],
+            "price_usd": trade["price_usd"],
+            "trade_time": trade["trade_time"],
+            "source": trade.get("source", "csv"),
+            "strategy_tag": trade.get("strategy_tag", "Swing"),
+        }
+        for trade in trades
+    ]
+    get_supabase().table("trades").insert(rows).execute()
+    _invalidate_user_trades_cache()
+
+
 def _invalidate_user_trades_cache() -> None:
     get_user_trades.clear()
+    get_user_trades_page.clear()
+    get_all_user_trades.clear()
 
 def get_all_users_dev():
     """Hanya untuk role 'dev'."""
@@ -139,7 +220,13 @@ def count_user_alerts(user_id: str) -> int:
 
 def get_user_alerts(user_id: str):
     supabase = get_supabase()
-    res = supabase.table("alerts").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    res = (
+        supabase.table("alerts")
+        .select("coin_id,symbol,condition,target_price,currency,is_active,created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
     return res.data
 
 def delete_alert(alert_id: str):
@@ -169,6 +256,29 @@ def get_user_watchlist(user_id: str) -> list[str]:
     supabase = get_supabase()
     res = supabase.table("watchlists").select("coin_id").eq("user_id", user_id).execute()
     return [row["coin_id"] for row in res.data]
+
+
+def sync_user_watchlist(user_id: str, current_ids: list[str], desired_ids: list[str]) -> None:
+    """Apply only the user's watchlist additions and removals."""
+    current = set(current_ids)
+    desired = set(desired_ids)
+    removed = sorted(current - desired)
+    added = sorted(desired - current)
+    supabase = get_supabase()
+
+    if removed:
+        (
+            supabase.table("watchlists")
+            .delete()
+            .eq("user_id", user_id)
+            .in_("coin_id", removed)
+            .execute()
+        )
+    if added:
+        supabase.table("watchlists").upsert(
+            [{"user_id": user_id, "coin_id": coin_id} for coin_id in added]
+        ).execute()
+
 
 def add_to_watchlist(user_id: str, coin_id: str):
     supabase = get_supabase()

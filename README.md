@@ -11,5 +11,8 @@
 - **💱 Konverter Koin** — konversi antar koin, USD, dan IDR
 - **⭐ Watchlist** — tandai koin favorit
 - **📄 Laporan PDF mingguan** — unduh ringkasan pasar
-- Ringkasan **3 koin teratas**, tab **Gainers & Losers**, **grafik 7 hari**,
+- Ringkasan **pasar terpantau**, tab **Gainers & Losers**, **grafik 7 hari**,
   **tabel data**, **ekspor CSV**, dan **Mode Demo**
+- Dashboard pasar dengan ringkasan kapitalisasi/volume aset terpantau, logo
+  CoinGecko, dan sparkline 7 hari; tersedia tema terang dan gelap yang dapat
+  diubah dari navigasi samping.

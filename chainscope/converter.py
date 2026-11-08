@@ -1,5 +1,6 @@
 """Logika konversi antar-aset untuk ChainScope ID."""
 
+import math
 from typing import Optional
 
 import pandas as pd
@@ -26,12 +27,13 @@ def build_price_map(
     prices: dict[str, float] = {cur: 1.0, "USD": usd_currency_rate}
 
     if "id" in market_df.columns and "current_price" in market_df.columns:
-        for _, row in market_df.iterrows():
-            cid = str(row["id"])
+        for coin_id, current_price in zip(market_df["id"], market_df["current_price"]):
             try:
-                prices[cid] = float(row["current_price"])
+                price = float(current_price)
             except (TypeError, ValueError):
                 continue
+            if pd.notna(coin_id) and math.isfinite(price) and price > 0:
+                prices[str(coin_id)] = price
 
     return prices
 

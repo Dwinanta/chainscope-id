@@ -15,6 +15,10 @@ class FakeAlertQuery:
         self.filters.append((column, value))
         return self
 
+    def order(self, column, desc=False):
+        self.ordering = (column, desc)
+        return self
+
     def execute(self):
         return type("Response", (), {"data": self.data})()
 
@@ -44,3 +48,16 @@ def test_count_user_alerts_returns_zero_when_no_active_alerts(monkeypatch):
     monkeypatch.setattr(db, "get_supabase", lambda: FakeSupabase([]))
 
     assert db.count_user_alerts("user-123") == 0
+
+
+def test_get_user_alerts_selects_only_displayed_fields(monkeypatch):
+    supabase = FakeSupabase([])
+    monkeypatch.setattr(db, "get_supabase", lambda: supabase)
+
+    db.get_user_alerts("user-123")
+
+    assert supabase.query.selected == (
+        "coin_id,symbol,condition,target_price,currency,is_active,created_at"
+    )
+    assert supabase.query.filters == [("user_id", "user-123")]
+    assert supabase.query.ordering == ("created_at", True)

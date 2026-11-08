@@ -53,6 +53,61 @@ def test_fetch_market_data_raises_on_network_error(mock_get):
 
 
 @patch("chainscope.api.requests.get")
+def test_fetch_market_data_for_ids_batches_unique_ids(mock_get):
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = [
+        {"id": "bitcoin", "symbol": "btc", "name": "Bitcoin", "current_price": 1.0}
+    ]
+    mock_get.return_value = response
+
+    df = api.fetch_market_data_for_ids("IDR", ["bitcoin", "ethereum", "bitcoin"])
+
+    assert df["id"].tolist() == ["bitcoin"]
+    mock_get.assert_called_once_with(
+        f"{api.config.API_BASE}/coins/markets",
+        params={"vs_currency": "idr", "ids": "bitcoin,ethereum"},
+        timeout=api.config.REQUEST_TIMEOUT,
+    )
+
+
+@patch("chainscope.api.requests.get")
+def test_fetch_market_data_for_ids_returns_empty_frame_without_request(mock_get):
+    df = api.fetch_market_data_for_ids("usd", [])
+
+    assert df.empty
+    assert {"id", "current_price", "image"}.issubset(df.columns)
+    mock_get.assert_not_called()
+
+
+@patch("chainscope.api.requests.get")
+def test_fetch_usd_currency_rate_uses_one_targeted_request(mock_get):
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"bitcoin": {"usd": 50_000, "idr": 800_000_000}}
+    mock_get.return_value = response
+
+    assert api.fetch_usd_currency_rate("IDR") == 16_000
+    mock_get.assert_called_once_with(
+        f"{api.config.API_BASE}/simple/price",
+        params={"ids": "bitcoin", "vs_currencies": "usd,idr"},
+        timeout=api.config.REQUEST_TIMEOUT,
+    )
+
+
+@patch("chainscope.api.requests.get")
+def test_fetch_usd_currency_rate_rejects_invalid_prices(mock_get):
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"bitcoin": {"usd": 0, "idr": 1}}
+    mock_get.return_value = response
+
+    with pytest.raises(api.ChainScopeAPIError, match="tidak valid"):
+        api.fetch_usd_currency_rate("idr")
+    mock_get.assert_called_once()
+
+
+@patch("chainscope.api.requests.get")
 def test_fetch_fear_greed_index_returns_latest_entry(mock_get):
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None

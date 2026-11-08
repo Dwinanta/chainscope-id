@@ -26,6 +26,9 @@ def render_personal_wallet(dark_mode: bool = False) -> None:
     if dark_mode:
         palette = dark_palette
         dark_theme_style = f"""
+        html.dark, html.dark body {{
+            color-scheme: dark;
+        }}
         html.dark body.bg-slate-50 {{
             background: {palette["main_background_gradient"]};
         }}
@@ -43,9 +46,30 @@ def render_personal_wallet(dark_mode: bool = False) -> None:
             background: {palette["input_background"]};
             border-color: {palette["border"]};
         }}
+        html.dark body.bg-slate-50 select option {{
+            color: {palette["primary_text"]};
+            background: {palette["input_background"]};
+        }}
         html.dark body.bg-slate-50 input::placeholder,
         html.dark body.bg-slate-50 textarea::placeholder {{
             color: {palette["secondary_text"]};
+        }}
+        html.dark body.bg-slate-50 input:focus-visible,
+        html.dark body.bg-slate-50 select:focus-visible,
+        html.dark body.bg-slate-50 textarea:focus-visible,
+        html.dark body.bg-slate-50 button:focus-visible {{
+            outline: 2px solid {palette["blue_secondary"]};
+            outline-offset: 2px;
+        }}
+        html.dark body.bg-slate-50 input:disabled,
+        html.dark body.bg-slate-50 select:disabled,
+        html.dark body.bg-slate-50 textarea:disabled,
+        html.dark body.bg-slate-50 button:disabled {{
+            opacity: 0.55;
+            cursor: not-allowed;
+        }}
+        html.dark body.bg-slate-50 button {{
+            border-color: {palette["border"]};
         }}
         html.dark body.bg-slate-50 table thead {{
             background: {palette["content_background"]};
