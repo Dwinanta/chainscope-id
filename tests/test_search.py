@@ -72,3 +72,71 @@ def test_filter_empty_dataframe():
     df = pd.DataFrame(columns=["id", "name", "symbol"])
     result = search.filter_coins(df, "bitcoin")
     assert len(result) == 0
+
+
+def test_search_matches_stable_coin_id():
+    result = search.filter_coins(_mk_df(), "ethereum")
+
+    assert result["id"].tolist() == ["ethereum"]
+
+
+def test_coin_selector_limits_results_and_prioritizes_selected_and_popular():
+    catalog = pd.DataFrame([
+        {
+            "id": f"token-{index:03d}",
+            "name": f"Token {index:03d}",
+            "symbol": f"t{index:03d}",
+            "label": f"Token {index:03d} (T{index:03d})",
+        }
+        for index in range(100)
+    ] + [{
+        "id": "bitcoin",
+        "name": "Bitcoin",
+        "symbol": "btc",
+        "label": "Bitcoin (BTC)",
+    }])
+
+    options = search.coin_selector_options(catalog, "")
+
+    assert len(options) == 50
+    assert options[0] == "bitcoin"
+
+
+def test_coin_selector_prioritizes_exact_match_and_preserves_selection():
+    catalog = pd.DataFrame([
+        {"id": "ethereum", "name": "Ethereum", "symbol": "eth", "label": "Ethereum (ETH)"},
+        {"id": "ethereum-classic", "name": "Ethereum Classic", "symbol": "etc", "label": "Ethereum Classic (ETC)"},
+        {"id": "my-eth-token", "name": "My ETH Token", "symbol": "met", "label": "My ETH Token (MET)"},
+    ])
+
+    options = search.coin_selector_options(
+        catalog, "eth", selected_ids=["ethereum-classic"]
+    )
+
+    assert options == ["ethereum-classic", "ethereum", "my-eth-token"]
+
+
+def test_coin_selector_preserves_existing_choices_even_over_result_limit():
+    catalog = pd.DataFrame([
+        {"id": f"coin-{index}", "name": f"Coin {index}", "symbol": f"c{index}"}
+        for index in range(60)
+    ])
+
+    options = search.coin_selector_options(
+        catalog,
+        "coin",
+        selected_ids=[f"coin-{index}" for index in range(52)],
+        limit=50,
+    )
+
+    assert len(options) == 52
+    assert options[:52] == [f"coin-{index}" for index in range(52)]
+
+
+def test_coin_selector_does_not_make_unmatched_assets_selectable():
+    catalog = pd.DataFrame([
+        {"id": "bitcoin", "name": "Bitcoin", "symbol": "btc"},
+        {"id": "ethereum", "name": "Ethereum", "symbol": "eth"},
+    ])
+
+    assert search.coin_selector_options(catalog, "missing") == []

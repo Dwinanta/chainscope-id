@@ -1,6 +1,7 @@
 """Streamlit component for the standalone personal finance tracker."""
 
 from pathlib import Path
+from hashlib import sha256
 
 import streamlit as st
 
@@ -13,9 +14,18 @@ def _load_personal_wallet_template() -> str:
     return html_path.read_text(encoding="utf-8")
 
 
-def render_personal_wallet(dark_mode: bool = False) -> None:
+def render_personal_wallet(
+    dark_mode: bool = False,
+    user_id: str | None = None,
+) -> None:
     """Render the AturUang tracker using the active app theme."""
     html_content = _load_personal_wallet_template()
+    namespace = (
+        sha256(user_id.encode("utf-8")).hexdigest()[:16]
+        if user_id
+        else "anonymous"
+    )
+    html_content = html_content.replace("__STORAGE_NAMESPACE__", namespace)
     dark_palette = ui.get_theme_palette(is_dark_mode=True)
     theme_name = "dark" if dark_mode else "light"
     html_content = html_content.replace("__INITIAL_THEME__", theme_name)

@@ -238,6 +238,68 @@ def test_fetch_all_coins_skips_invalid_rows_and_rejects_empty_response(mock_get)
         api.fetch_all_coins()
 
 
+def test_prepare_coin_catalog_normalizes_labels_deduplicates_ids_and_preserves_valid_names():
+    catalog = pd.DataFrame([
+        {"id": "bitcoin", "symbol": " btc ", "name": " Bitcoin "},
+        {"id": "bitcoin", "symbol": "wrong", "name": "Duplicate"},
+        {"id": "01-token", "symbol": "01", "name": "01"},
+        {"id": "unicode", "symbol": "café", "name": "Cafe\u0301 Coin"},
+        {"id": "missing-name", "symbol": "bad", "name": " \n "},
+        {"id": None, "symbol": "bad", "name": "Missing ID"},
+        {"id": "bad\nid", "symbol": "bad", "name": "Control character ID"},
+    ])
+
+    prepared = api.prepare_coin_catalog(catalog)
+
+    assert prepared["id"].tolist() == ["bitcoin", "01-token", "unicode"]
+    assert prepared.loc[prepared["id"] == "bitcoin", "label"].item() == "Bitcoin (BTC)"
+    assert prepared.loc[prepared["id"] == "01-token", "label"].item() == "01 (01)"
+    assert prepared.loc[prepared["id"] == "unicode", "name"].item() == "Café Coin"
+    assert prepared.loc[prepared["id"] == "unicode", "label"].item() == "Café Coin (CAFÉ)"
+
+
+def test_resolve_coin_identifier_uses_exact_ids_and_rejects_ambiguous_symbols():
+    catalog = api.prepare_coin_catalog(pd.DataFrame([
+        {"id": "btc-wrapped", "symbol": "btc", "name": "Wrapped Bitcoin"},
+        {"id": "bitcoin", "symbol": "btc", "name": "Bitcoin"},
+        {"id": "01-token", "symbol": "01", "name": "01"},
+    ]))
+
+    assert api.resolve_coin_identifier("bitcoin", catalog) == "bitcoin"
+    assert api.resolve_coin_identifier("01-token", catalog) == "01-token"
+    assert api.resolve_coin_identifier("01", catalog) == "01-token"
+    assert api.resolve_coin_identifier("btc", catalog) is None
+    assert api.resolve_coin_identifier("bit", catalog) is None
+    assert api.resolve_coin_identifier("Wrapped Bitcoin", catalog) == "btc-wrapped"
+
+
+def test_prepare_market_rows_deduplicates_by_coin_id_without_mixing_metadata():
+    market = pd.DataFrame([
+        {
+            "id": "bitcoin",
+            "symbol": "btc",
+            "name": "Bitcoin",
+            "current_price": 100,
+            "image": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
+        },
+        {
+            "id": "bitcoin",
+            "symbol": "wrong",
+            "name": "Wrong asset",
+            "current_price": 200,
+            "image": "https://assets.coingecko.com/wrong.png",
+        },
+    ])
+
+    prepared = api.prepare_coin_catalog(market)
+
+    assert len(prepared) == 1
+    assert prepared.iloc[0]["id"] == "bitcoin"
+    assert prepared.iloc[0]["name"] == "Bitcoin"
+    assert prepared.iloc[0]["symbol_upper"] == "BTC"
+    assert prepared.iloc[0]["image"].endswith("bitcoin.png")
+
+
 def test_merge_market_and_coin_list_keeps_market_rows_and_adds_unpriced_coins():
     market = pd.DataFrame([
         {

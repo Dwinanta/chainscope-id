@@ -125,6 +125,13 @@ def get_theme_palette(is_dark_mode: bool = False) -> dict[str, str]:
     return dict(_THEMES["dark" if is_dark_mode else "light"])
 
 
+def user_state_key(name: str, user_id: str) -> str:
+    """Build a stable Streamlit widget key scoped to one authenticated user."""
+    if not name.strip() or not user_id.strip():
+        raise ValueError("Widget name and user ID are required.")
+    return f"{name}_{user_id}"
+
+
 def render_coin_logo(
     coin_id: str,
     image_url: str | None,
@@ -268,8 +275,11 @@ def apply_theme(is_dark_mode: bool = False) -> None:
         [data-testid="stHeader"],
         [data-testid="stToolbar"] {{ background: transparent; }}
         .block-container {{
-            max-width: 100%;
-            padding: 0.5rem 2rem 0;
+            width: 100%;
+            max-width: 1600px;
+            padding: 1.15rem clamp(1rem, 3vw, 2.5rem) 2rem;
+            margin: 0 auto;
+            box-sizing: border-box;
         }}
 
         [data-testid="stSidebar"] {{
@@ -302,8 +312,16 @@ def apply_theme(is_dark_mode: bool = False) -> None:
             gap: 8px;
             position: relative;
             z-index: 10;
-            margin: -3.5rem 0 1.5rem;
-            padding-left: 10px;
+            margin: 0 0 1rem;
+            padding: 0.75rem 0.4rem;
+        }}
+        .sidebar-section-label {{
+            margin: 0.9rem 0 0.35rem;
+            color: var(--cs-secondary-text);
+            font-size: 0.67rem;
+            font-weight: 750;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
         }}
         .sidebar-divider {{
             border-color: var(--cs-border);
@@ -434,11 +452,11 @@ def apply_theme(is_dark_mode: bool = False) -> None:
         .asset-pair-divider, .asset-symbol {{ color: var(--cs-secondary-text); }}
         [data-testid="stSidebar"] [data-testid="stButton"] > button {{
             justify-content: flex-start;
-            min-height: 40px;
+            min-height: 42px;
             margin-bottom: 4px;
             padding: 7px 12px;
             border: 0;
-            border-radius: 9px;
+            border-radius: 10px;
             color: var(--cs-secondary-text);
             background: transparent;
             font-size: 0.9rem;
@@ -508,6 +526,7 @@ def apply_theme(is_dark_mode: bool = False) -> None:
             color: var(--cs-primary-text);
             background: var(--cs-input-background);
             border-color: var(--cs-border);
+            border-radius: 10px;
             color-scheme: {"dark" if is_dark_mode else "light"};
         }}
         [data-testid="stSelectbox"] [data-baseweb="select"],
@@ -703,43 +722,158 @@ def apply_theme(is_dark_mode: bool = False) -> None:
         [data-testid="stToast"] p,
         [data-testid="stToast"] span {{ color: var(--cs-primary-text); }}
 
-        .landing-hero {{ text-align: center; padding: 0.45rem 0 0.2rem; }}
+        .landing-shell {{
+            width: 100%;
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 0.5rem 0 1rem;
+        }}
+        .landing-hero-panel {{
+            position: relative;
+            overflow: hidden;
+            padding: clamp(2rem, 6vw, 4.5rem);
+            border: 1px solid var(--cs-card-border);
+            border-radius: 26px;
+            background:
+                radial-gradient(circle at 88% 18%, rgba(59,130,246,.16), transparent 30%),
+                linear-gradient(135deg, var(--cs-card-surface), var(--cs-content-background));
+            box-shadow: var(--cs-card-shadow);
+            animation: cs-enter 520ms ease-out both;
+        }}
+        .landing-eyebrow {{
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 11px;
+            border: 1px solid rgba(var(--cs-accent-rgb), .22);
+            border-radius: 999px;
+            color: var(--cs-active-text);
+            background: var(--cs-active);
+            font-size: .76rem;
+            font-weight: 700;
+        }}
+        .landing-hero {{ max-width: 760px; padding-top: 1.1rem; }}
         .landing-hero h1 {{
             color: var(--cs-primary-text);
-            font-size: 2.25rem;
-            line-height: 1.15;
-            margin: 0.25rem 0 0.45rem;
+            font-size: clamp(2rem, 5vw, 3.65rem);
+            line-height: 1.08;
+            letter-spacing: -.055em;
+            margin: 0.25rem 0 1rem;
         }}
-        .landing-hero p, .landing-card p {{ color: var(--cs-secondary-text); }}
+        .landing-hero p {{
+            max-width: 650px;
+            color: var(--cs-secondary-text);
+            font-size: clamp(1rem, 1.5vw, 1.15rem);
+            line-height: 1.7;
+        }}
+        .landing-actions {{ margin: 1.25rem 0 0.5rem; }}
+        .landing-actions [data-testid="stButton"] > button {{
+            min-height: 46px;
+            border-radius: 12px;
+            font-weight: 700;
+        }}
         .landing-section-title {{
             color: var(--cs-primary-text);
-            font-size: 1.1rem;
+            font-size: clamp(1.25rem, 2vw, 1.6rem);
             font-weight: 700;
-            text-align: center;
-            margin: 0.6rem 0 0.4rem;
+            letter-spacing: -.025em;
+            margin: 2rem 0 0.25rem;
         }}
         .landing-card {{
             color: var(--cs-primary-text);
-            background: var(--cs-card-background);
-            border: 1px solid var(--cs-border);
-            border-radius: 14px;
-            padding: 0.75rem 1rem;
-            min-height: 94px;
+            background: var(--cs-card-surface);
+            border: 1px solid var(--cs-card-border);
+            border-radius: 16px;
+            padding: 1.1rem 1.15rem;
+            min-height: 126px;
+            box-shadow: var(--cs-card-shadow);
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+            animation: cs-enter 480ms ease-out both;
+        }}
+        .landing-card:hover {{
+            transform: translateY(-3px);
+            border-color: var(--cs-accent);
+            box-shadow: 0 12px 30px rgba(var(--cs-accent-rgb), .1);
         }}
         .landing-card h3 {{ color: var(--cs-primary-text); font-size: 1rem; }}
-        .landing-card p {{ font-size: 0.88rem; margin: 0; }}
-        .landing-price {{ min-height: 118px; text-align: center; }}
-        .landing-price .price {{
-            color: var(--cs-accent);
-            font-size: 1.4rem;
+        .landing-card p {{ color: var(--cs-secondary-text); font-size: 0.9rem; line-height: 1.6; margin: 0; }}
+        .landing-step-number {{
+            display: grid;
+            width: 32px;
+            height: 32px;
+            place-items: center;
+            margin-bottom: .7rem;
+            border-radius: 10px;
+            color: #FFFFFF;
+            background: linear-gradient(135deg, var(--cs-accent), var(--cs-blue-secondary));
+            font-size: .8rem;
             font-weight: 800;
-            margin: 0.25rem 0;
+        }}
+        .landing-disclaimer {{
+            margin-top: 1.5rem;
+            padding: .8rem 1rem;
+            border-left: 3px solid var(--cs-accent);
+            color: var(--cs-secondary-text);
+            background: var(--cs-card-surface);
+            font-size: .8rem;
+            line-height: 1.55;
         }}
         .landing-footer {{
             color: var(--cs-secondary-text);
             font-size: 0.75rem;
             text-align: center;
-            padding-top: 0.4rem;
+            padding: 1.5rem 0 0.4rem;
+        }}
+        .auth-panel {{
+            min-height: 100%;
+            padding: clamp(1.2rem, 3vw, 2rem);
+            border: 1px solid var(--cs-card-border);
+            border-radius: 20px;
+            background: var(--cs-card-surface);
+            box-shadow: var(--cs-card-shadow);
+            animation: cs-enter 420ms ease-out both;
+        }}
+        .auth-promo {{
+            min-height: 100%;
+            padding: clamp(1.5rem, 3vw, 2.25rem);
+            border: 1px solid rgba(var(--cs-accent-rgb), .18);
+            border-radius: 20px;
+            background:
+                radial-gradient(circle at 90% 10%, rgba(59,130,246,.2), transparent 36%),
+                linear-gradient(145deg, var(--cs-active), var(--cs-card-surface));
+            animation: cs-enter 500ms ease-out both;
+        }}
+        .auth-promo h2 {{
+            color: var(--cs-primary-text);
+            font-size: clamp(1.6rem, 2.4vw, 2.15rem);
+            letter-spacing: -.04em;
+            line-height: 1.15;
+        }}
+        .auth-promo p, .auth-promo li {{
+            color: var(--cs-secondary-text);
+            line-height: 1.65;
+        }}
+        .auth-brand {{
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+            margin-bottom: 1rem;
+            color: var(--cs-primary-text);
+            font-size: 1.05rem;
+            font-weight: 800;
+        }}
+        .auth-brand-mark {{
+            display: grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            border-radius: 12px;
+            color: #FFFFFF;
+            background: linear-gradient(135deg, var(--cs-accent), var(--cs-blue-secondary));
+        }}
+        @keyframes cs-enter {{
+            from {{ opacity: 0; transform: translateY(10px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
         }}
         .st-key-forgot_password button {{
             color: var(--cs-accent);
@@ -771,8 +905,7 @@ def apply_theme(is_dark_mode: bool = False) -> None:
             .block-container {{
                 width: 100%;
                 max-width: 100vw;
-                padding-left: 1rem;
-                padding-right: 1rem;
+                padding: 1rem .85rem 1.5rem;
                 box-sizing: border-box;
             }}
             [data-testid="stMain"] {{ max-width: 100vw; overflow-x: hidden; }}
@@ -788,9 +921,21 @@ def apply_theme(is_dark_mode: bool = False) -> None:
                 left: 10px;
                 z-index: 9999;
             }}
-            .logo-container {{ margin-top: 0.5rem; }}
+            .logo-container {{ margin-top: 0; }}
             .stApp h1 {{ font-size: 1.65rem; }}
             [data-testid="stDataFrame"] {{ max-width: 100%; overflow-x: auto; }}
+            .landing-shell {{ padding-top: .15rem; }}
+            .landing-hero-panel {{ border-radius: 19px; }}
+            .landing-card {{ min-height: 0; }}
+            .auth-panel, .auth-promo {{ min-height: 0; }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            *, *::before, *::after {{
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }}
         }}
         .st-key-overview_timeframe [data-testid="stButtonGroup"] [role="radiogroup"] {{
             box-sizing: border-box;

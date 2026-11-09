@@ -3,6 +3,7 @@
 import logging
 import math
 import time
+import unicodedata
 import pandas as pd
 import requests
 from . import config
@@ -12,6 +13,112 @@ logger = logging.getLogger(__name__)
 
 class ChainScopeAPIError(Exception):
     """Error saat berkomunikasi dengan API."""
+
+
+def _clean_metadata_text(
+    value: object,
+    *,
+    reject_controls: bool = False,
+) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = unicodedata.normalize("NFC", value.lstrip("\ufeff"))
+    if reject_controls and any(
+        unicodedata.category(character) in {"Cc", "Cs"}
+        for character in normalized
+    ):
+        return None
+    cleaned = "".join(
+        " " if unicodedata.category(character) in {"Cc", "Cs"} else character
+        for character in normalized
+    )
+    cleaned = " ".join(cleaned.split())
+    return cleaned or None
+
+
+def prepare_coin_catalog(coins: pd.DataFrame) -> pd.DataFrame:
+    """Validate CoinGecko identity fields and derive consistent display labels.
+
+    Coin IDs remain the stable selection key. Numeric names and unusual symbols
+    are retained when the source provides valid, non-empty metadata.
+    """
+    result = coins.copy()
+    for column in ("id", "symbol", "name"):
+        if column not in result.columns:
+            result[column] = pd.Series(dtype="object")
+
+    rows = []
+    seen_ids = set()
+    invalid_count = 0
+    duplicate_count = 0
+    for row in result.to_dict("records"):
+        coin_id = _clean_metadata_text(row.get("id"), reject_controls=True)
+        symbol = _clean_metadata_text(row.get("symbol"))
+        name = _clean_metadata_text(row.get("name"))
+        if not coin_id or not symbol or not name:
+            invalid_count += 1
+            continue
+
+        identity = coin_id.casefold()
+        if identity in seen_ids:
+            duplicate_count += 1
+            continue
+        seen_ids.add(identity)
+        row.update({
+            "id": coin_id,
+            "symbol": symbol.lower(),
+            "name": name,
+        })
+        rows.append(row)
+
+    prepared = pd.DataFrame(rows, columns=result.columns)
+    if prepared.empty:
+        prepared = result.iloc[:0].copy()
+    prepared["symbol_upper"] = prepared["symbol"].astype(str).str.upper()
+    prepared["label"] = (
+        prepared["name"].astype(str)
+        + " ("
+        + prepared["symbol_upper"]
+        + ")"
+    )
+    if invalid_count or duplicate_count:
+        logger.warning(
+            "CoinGecko catalog normalization removed %d invalid rows and "
+            "%d duplicate IDs.",
+            invalid_count,
+            duplicate_count,
+        )
+    return prepared
+
+
+def resolve_coin_identifier(value: object, catalog: pd.DataFrame) -> str | None:
+    """Resolve an exact CoinGecko ID, symbol, or name without fuzzy matches."""
+    query = _clean_metadata_text(value)
+    if not query or not {"id", "symbol", "name"}.issubset(catalog.columns):
+        return None
+
+    normalized_query = query.casefold()
+    ids = catalog["id"].astype(str)
+    exact_ids = catalog.loc[ids.str.casefold() == normalized_query, "id"]
+    if len(exact_ids) == 1:
+        return str(exact_ids.iloc[0])
+
+    symbols = catalog["symbol"].astype(str)
+    exact_symbols = catalog.loc[
+        symbols.str.casefold() == normalized_query, "id"
+    ].drop_duplicates()
+    if len(exact_symbols) == 1:
+        return str(exact_symbols.iloc[0])
+    if len(exact_symbols) > 1:
+        return None
+
+    names = catalog["name"].astype(str)
+    exact_names = catalog.loc[
+        names.str.casefold() == normalized_query, "id"
+    ].drop_duplicates()
+    return str(exact_names.iloc[0]) if len(exact_names) == 1 else None
+
 
 # ==============================================================================
 # 1. COINGECKO API (Untuk Data Pasar & Riwayat Harga)
@@ -38,7 +145,10 @@ def fetch_market_data(vs_currency: str, limit: int) -> pd.DataFrame:
 
     if not isinstance(data, list) or not data:
         raise ChainScopeAPIError("Respons API kosong atau tidak sesuai format.")
-    return pd.DataFrame(data)
+    market_data = prepare_coin_catalog(pd.DataFrame(data))
+    if market_data.empty:
+        raise ChainScopeAPIError("Respons API tidak berisi metadata aset yang valid.")
+    return market_data
 
 
 def fetch_market_data_for_ids(
@@ -75,7 +185,7 @@ def fetch_market_data_for_ids(
 
     if not frames:
         return pd.DataFrame(columns=["id", "symbol", "name", "current_price", "image"])
-    market_data = pd.concat(frames, ignore_index=True)
+    market_data = prepare_coin_catalog(pd.concat(frames, ignore_index=True))
     for column in ("id", "symbol", "name", "current_price", "image"):
         if column not in market_data:
             market_data[column] = None
@@ -234,21 +344,17 @@ def fetch_all_coins() -> list[dict[str, str]]:
     if not isinstance(data, list):
         raise ChainScopeAPIError("Respons daftar koin CoinGecko tidak sesuai format.")
 
-    coins = []
-    for coin in data:
-        if not isinstance(coin, dict):
-            continue
-        coin_id, symbol, name = coin.get("id"), coin.get("symbol"), coin.get("name")
-        if all(isinstance(value, str) and value.strip() for value in (coin_id, symbol, name)):
-            coins.append({
-                "id": coin_id.strip(),
-                "symbol": symbol.strip().lower(),
-                "name": name.strip(),
-            })
+    coin_rows = [coin for coin in data if isinstance(coin, dict)]
+    if len(coin_rows) != len(data):
+        logger.warning(
+            "CoinGecko catalog skipped %d non-object rows.",
+            len(data) - len(coin_rows),
+        )
+    coins = prepare_coin_catalog(pd.DataFrame(coin_rows))
 
-    if not coins:
+    if coins.empty:
         raise ChainScopeAPIError("CoinGecko tidak mengembalikan daftar koin yang valid.")
-    return coins
+    return coins[["id", "symbol", "name"]].to_dict("records")
 
 
 def merge_market_and_coin_list(
@@ -260,11 +366,8 @@ def merge_market_and_coin_list(
     if not required.issubset(market_data.columns) or not required.issubset(all_coins.columns):
         raise ValueError("Data pasar dan katalog wajib memiliki kolom id, symbol, dan name.")
 
-    market = market_data.copy()
-    catalog = all_coins.copy()
-    market["id"] = market["id"].astype(str)
-    catalog["id"] = catalog["id"].astype(str)
-    market = market.drop_duplicates("id", keep="first")
+    market = prepare_coin_catalog(market_data)
+    catalog = prepare_coin_catalog(all_coins)
     market["_market_rank"] = range(len(market))
 
     coins = pd.concat(
@@ -287,7 +390,7 @@ def merge_market_and_coin_list(
         merged["current_price"] = merged["current_price"].fillna(0)
     if "image" in merged:
         merged["image"] = merged["image"].fillna("")
-    return merged
+    return prepare_coin_catalog(merged)
 
 
 def fetch_price_history(coin_id: str, vs_currency: str, days: int = 7) -> pd.DataFrame:

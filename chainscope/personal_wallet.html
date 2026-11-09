@@ -99,6 +99,19 @@
             </div>
         </header>
 
+        <section id="legacyWalletBanner" class="hidden bg-amber-50 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50">
+            <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">Data Wallet Lama di Browser</p>
+            <p class="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                Data lama tidak terhubung ke akun. Impor hanya jika Anda memastikan transaksi di browser ini milik akun Anda.
+                Data lama tidak akan dihapus.
+            </p>
+            <div class="flex gap-2 mt-3">
+                <button onclick="importLegacyWalletData()" class="px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold">Impor ke akun ini</button>
+                <button onclick="dismissLegacyWalletBanner()" class="px-3 py-2 rounded-lg bg-white dark:bg-zinc-800 text-xs font-semibold border border-amber-300 dark:border-amber-800">Nanti</button>
+            </div>
+            <p id="legacyWalletStatus" class="text-xs mt-2" role="status"></p>
+        </section>
+
         <!-- MAIN GRID LAYOUT -->
         <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -314,12 +327,17 @@
     <script>
         // Constants & State Management
         const USDT_RATE = 16200; // Fixed conversion rate IDR to USDT
-        let transactions = JSON.parse(localStorage.getItem('aturuang_transactions')) || [];
+        const STORAGE_PREFIX = 'aturuang___STORAGE_NAMESPACE__';
+        const TRANSACTIONS_KEY = `${STORAGE_PREFIX}_transactions`;
+        const THEME_KEY = `${STORAGE_PREFIX}_theme`;
+        const HIDE_BALANCE_KEY = `${STORAGE_PREFIX}_hide_balance`;
+        const LEGACY_TRANSACTIONS_KEY = 'aturuang_transactions';
+        let transactions = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY)) || [];
         const HOST_THEME = "__INITIAL_THEME__";
         let currentTheme = HOST_THEME === 'dark' || HOST_THEME === 'light'
             ? HOST_THEME
-            : localStorage.getItem('aturuang_theme') || 'dark';
-        let isBalanceHidden = localStorage.getItem('aturuang_hide_balance') === 'true';
+            : localStorage.getItem(THEME_KEY) || 'dark';
+        let isBalanceHidden = localStorage.getItem(HIDE_BALANCE_KEY) === 'true';
         let activeTxType = 'pemasukan';
         let activeChartView = 'doughnut';
         let pendingDeleteId = null;
@@ -333,6 +351,7 @@
 
         // Initialize App on DOM Load
         window.onload = function() {
+            showLegacyWalletBanner();
             initTheme();
             renderCategories();
             setDefaultDate();
@@ -353,7 +372,7 @@
 
         function toggleTheme() {
             currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('aturuang_theme', currentTheme);
+            localStorage.setItem(THEME_KEY, currentTheme);
             initTheme();
             renderChart(); // Re-render chart to match new theme contrast
         }
@@ -371,7 +390,7 @@
         // Hide/Show Balance Toggle
         function toggleHideBalance() {
             isBalanceHidden = !isBalanceHidden;
-            localStorage.setItem('aturuang_hide_balance', isBalanceHidden);
+            localStorage.setItem(HIDE_BALANCE_KEY, isBalanceHidden);
             const eyeIcon = document.getElementById('eyeIcon');
             eyeIcon.setAttribute('data-lucide', isBalanceHidden ? 'eye-off' : 'eye');
             lucide.createIcons();
@@ -454,7 +473,72 @@
         }
 
         function saveTransactions() {
-            localStorage.setItem('aturuang_transactions', JSON.stringify(transactions));
+            localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+        }
+
+        function showLegacyWalletBanner() {
+            const banner = document.getElementById('legacyWalletBanner');
+            if (
+                !transactions.length
+                && localStorage.getItem(LEGACY_TRANSACTIONS_KEY)
+            ) {
+                banner.classList.remove('hidden');
+            }
+        }
+
+        function dismissLegacyWalletBanner() {
+            document.getElementById('legacyWalletBanner').classList.add('hidden');
+        }
+
+        function importLegacyWalletData() {
+            if (transactions.length) {
+                document.getElementById('legacyWalletStatus').textContent =
+                    'Wallet akun ini sudah memiliki data; impor dibatalkan.';
+                return;
+            }
+            if (!confirm('Pastikan data browser ini hanya milik akun Anda. Impor transaksi lama?')) {
+                return;
+            }
+            let legacy;
+            try {
+                legacy = JSON.parse(localStorage.getItem(LEGACY_TRANSACTIONS_KEY) || '[]');
+            } catch {
+                document.getElementById('legacyWalletStatus').textContent =
+                    'Data lama tidak dapat dibaca dan tidak diubah.';
+                return;
+            }
+            if (!Array.isArray(legacy)) {
+                document.getElementById('legacyWalletStatus').textContent =
+                    'Format data lama tidak valid dan tidak diubah.';
+                return;
+            }
+            const valid = legacy.filter(tx =>
+                tx && typeof tx === 'object'
+                && ['pemasukan', 'pengeluaran', 'investasi'].includes(tx.type)
+                && typeof tx.category === 'string'
+                && typeof tx.date === 'string'
+                && Number.isFinite(Number(tx.id))
+                && Number.isFinite(Number(tx.amount))
+                && Number(tx.amount) > 0
+            ).map(tx => ({
+                id: tx.id,
+                type: tx.type,
+                amount: Number(tx.amount),
+                category: tx.category,
+                date: tx.date,
+                notes: typeof tx.notes === 'string' ? tx.notes : ''
+            }));
+            if (!valid.length) {
+                document.getElementById('legacyWalletStatus').textContent =
+                    'Tidak ada transaksi lama valid untuk diimpor.';
+                return;
+            }
+            transactions = valid;
+            saveTransactions();
+            document.getElementById('legacyWalletBanner').classList.add('hidden');
+            document.getElementById('legacyWalletStatus').textContent =
+                `${valid.length} transaksi disalin. Data lama tetap tersimpan.`;
+            updateDashboard();
         }
 
         function openDeleteModal(id) {

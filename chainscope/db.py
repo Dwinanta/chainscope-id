@@ -17,7 +17,7 @@ def get_user_profile(user_id: str) -> dict:
     supabase = get_supabase()
     res = (
         supabase.table("profiles")
-        .select("role,subscription_tier,subscription_end")
+        .select("role,subscription_tier,subscription_end,telegram_chat_id")
         .eq("id", user_id)
         .execute()
     )
@@ -239,7 +239,7 @@ def mark_alert_triggered(alert_id: str):
     now = datetime.now(timezone.utc).isoformat()
     return supabase.table("alerts").update({"is_active": False, "triggered_at": now}).eq("id", alert_id).execute()
 
-def update_telegram_chat_id(user_id: str, chat_id: str):
+def update_telegram_chat_id(user_id: str, chat_id: str | None):
     supabase = get_supabase()
     return supabase.table("profiles").update({"telegram_chat_id": chat_id}).eq("id", user_id).execute()
 
@@ -252,9 +252,18 @@ def get_all_active_alerts():
 # FUNGSI UNTUK WATCHLIST (SUPABASE)
 # ==========================================
 
-def get_user_watchlist(user_id: str) -> list[str]:
-    supabase = get_supabase()
-    res = supabase.table("watchlists").select("coin_id").eq("user_id", user_id).execute()
+def get_user_watchlist(user_id: str, limit: int | None = None) -> list[str]:
+    if limit is not None and limit <= 0:
+        raise ValueError("Batas watchlist harus lebih besar dari nol.")
+    query = (
+        get_supabase()
+        .table("watchlists")
+        .select("coin_id")
+        .eq("user_id", user_id)
+    )
+    if limit is not None:
+        query = query.order("coin_id").limit(limit)
+    res = query.execute()
     return [row["coin_id"] for row in res.data]
 
 

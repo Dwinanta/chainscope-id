@@ -68,28 +68,43 @@ def logout_user():
 
 def show_auth_page():
     """Menampilkan UI Login/Register jika user belum login."""
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    form_column, promo_column = st.columns([1.08, 0.92], gap="large")
+    with form_column:
         with st.container(border=True):
             st.markdown(
-                "<h1 style='text-align:center; margin-bottom:0.25rem;'>"
-                "🔒 ChainScope ID</h1>",
+                "<div class='auth-brand'><span class='auth-brand-mark'>C</span>"
+                "<span>ChainScope <span style='color:var(--cs-accent)'>ID</span>"
+                "</span></div>",
                 unsafe_allow_html=True,
             )
             st.markdown(
-                "<p style='text-align:center; margin:0 0 1.25rem;'>"
-                "Login atau daftar untuk mengakses dashboard dan trading journal."
-                "</p>",
+                "<h1 style='margin-bottom:.25rem'>Selamat datang</h1>",
                 unsafe_allow_html=True,
             )
+            st.caption(
+                "Masuk untuk melihat pasar, mencatat transaksi, dan mengelola "
+                "portofolio Anda."
+            )
 
-            tab1, tab2 = st.tabs(["Login", "Register"])
+            tab1, tab2 = st.tabs(["Masuk", "Buat akun"])
 
             with tab1:
                 with st.form("login_form"):
-                    email = st.text_input("Email")
-                    password = st.text_input("Password", type="password")
-                    submit = st.form_submit_button("Masuk", type="primary")
+                    email = st.text_input(
+                        "Email",
+                        placeholder="nama@email.com",
+                        help="Gunakan email yang terdaftar pada akun Anda.",
+                    )
+                    password = st.text_input(
+                        "Password",
+                        type="password",
+                        placeholder="Masukkan password",
+                    )
+                    submit = st.form_submit_button(
+                        "Masuk ke akun",
+                        type="primary",
+                        width="stretch",
+                    )
                     if submit:
                         success, msg = login_user(email, password)
                         if success:
@@ -105,9 +120,14 @@ def show_auth_page():
 
                 if st.session_state.get("show_password_reset", False):
                     with st.form("reset_password_form"):
-                        reset_email = st.text_input("Email untuk reset password")
+                        reset_email = st.text_input(
+                            "Email untuk reset password",
+                            placeholder="nama@email.com",
+                        )
                         reset_submit = st.form_submit_button(
-                            "Kirim link reset password", type="primary"
+                            "Kirim link reset password",
+                            type="primary",
+                            width="stretch",
                         )
                         if reset_submit:
                             if not reset_email.strip():
@@ -121,12 +141,46 @@ def show_auth_page():
 
             with tab2:
                 with st.form("register_form"):
-                    email = st.text_input("Email Baru")
-                    password = st.text_input("Password Baru", type="password")
-                    submit = st.form_submit_button("Daftar", type="primary")
+                    email = st.text_input(
+                        "Email Baru",
+                        placeholder="nama@email.com",
+                        help="Gunakan alamat email yang dapat Anda akses.",
+                    )
+                    password = st.text_input(
+                        "Password Baru",
+                        type="password",
+                        placeholder="Buat password",
+                    )
+                    st.caption(
+                        "Jika konfirmasi email diaktifkan, buka email Anda "
+                        "setelah formulir dikirim."
+                    )
+                    submit = st.form_submit_button(
+                        "Buat akun",
+                        type="primary",
+                        width="stretch",
+                    )
                     if submit:
                         success, msg = register_user(email, password)
                         if success:
                             st.success(msg)
                         else:
                             st.error(f"Gagal daftar: {msg}")
+
+    with promo_column:
+        st.markdown(
+            "<div class='auth-promo'>"
+            "<div class='landing-eyebrow'>Platform investasi yang lebih terarah</div>"
+            "<h2>Mulai dengan langkah kecil, pahami keputusan Anda.</h2>"
+            "<p>ChainScope ID menyatukan informasi pasar dan pencatatan pribadi "
+            "dalam satu ruang yang mudah digunakan.</p>"
+            "<ul>"
+            "<li>Pantau harga dan aset pilihan Anda.</li>"
+            "<li>Catat transaksi untuk meninjau kinerja.</li>"
+            "<li>Gunakan ringkasan risiko sebagai bahan evaluasi.</li>"
+            "</ul>"
+            "<p><strong>Catatan:</strong> data pasar dapat berubah dan bukan "
+            "jaminan hasil investasi.</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )

@@ -11,19 +11,46 @@ MOVERS_PER_SIDE = 5
 
 # Mata uang
 CURRENCY_OPTIONS = {
-    "USD": {"label": "USD (Dolar AS)", "prefix": "$"},
-    "IDR": {"label": "IDR (Rupiah)", "prefix": "Rp"},
-    "EUR": {"label": "EUR (Euro)", "prefix": "€"},
-    "GBP": {"label": "GBP (Pound Sterling)", "prefix": "£"},
-    "JPY": {"label": "JPY (Yen Jepang)", "prefix": "¥"},
-    "AUD": {"label": "AUD (Dolar Australia)", "prefix": "A$"},
-    "CAD": {"label": "CAD (Dolar Kanada)", "prefix": "C$"},
-    "CHF": {"label": "CHF (Franc Swiss)", "prefix": "CHF "},
-    "CNY": {"label": "CNY (Yuan Tiongkok)", "prefix": "CN¥"},
-    "SGD": {"label": "SGD (Dolar Singapura)", "prefix": "S$"},
-    "MYR": {"label": "MYR (Ringgit Malaysia)", "prefix": "RM"},
+    "USD": {"label": "United States Dollar (USD)", "prefix": "$"},
+    "IDR": {"label": "Indonesian Rupiah (IDR)", "prefix": "Rp"},
+    "EUR": {"label": "Euro (EUR)", "prefix": "€"},
+    "GBP": {"label": "British Pound (GBP)", "prefix": "£"},
+    "JPY": {"label": "Japanese Yen (JPY)", "prefix": "¥"},
+    "AUD": {"label": "Australian Dollar (AUD)", "prefix": "A$"},
+    "CAD": {"label": "Canadian Dollar (CAD)", "prefix": "C$"},
+    "CHF": {"label": "Swiss Franc (CHF)", "prefix": "CHF "},
+    "CNY": {"label": "Chinese Yuan (CNY)", "prefix": "CN¥"},
+    "SGD": {"label": "Singapore Dollar (SGD)", "prefix": "S$"},
+    "MYR": {"label": "Malaysian Ringgit (MYR)", "prefix": "RM"},
 }
 DEFAULT_CURRENCY = "IDR"
+
+_CURRENCY_NAMES_ID = {
+    "USD": "Dolar AS",
+    "IDR": "Rupiah Indonesia",
+    "EUR": "Euro",
+    "GBP": "Pound sterling",
+    "JPY": "Yen Jepang",
+    "AUD": "Dolar Australia",
+    "CAD": "Dolar Kanada",
+    "CHF": "Franc Swiss",
+    "CNY": "Yuan Tiongkok",
+    "SGD": "Dolar Singapura",
+    "MYR": "Ringgit Malaysia",
+}
+
+
+def currency_display_label(code: str, language: str = "EN") -> str:
+    """Return a concise, human-readable currency option label."""
+    currency = CURRENCY_OPTIONS.get(code.upper())
+    if currency is None:
+        return code.upper()
+    if language.upper() == "ID":
+        name = _CURRENCY_NAMES_ID.get(code.upper(), currency["label"])
+    else:
+        name = currency["label"].rsplit(" (", 1)[0]
+    return f"{code.upper()} · {name}"
+
 
 # Main navigation and page titles
 UI_TRANSLATIONS = {
@@ -52,6 +79,14 @@ UI_TRANSLATIONS = {
         "Converter": "Converter",
         "Watchlist": "Watchlist",
         "Admin Panel": "Admin Panel",
+        "AI Research": "AI Research",
+        "Risk Center": "Risk Center",
+        "Performance Coach": "Performance Coach",
+        "Market": "Market",
+        "Insights": "Insights",
+        "Tools": "Tools",
+        "Preferences": "Preferences",
+        "Display currency": "Display currency",
     },
     "ID": {
         "Language": "Bahasa",
@@ -78,6 +113,14 @@ UI_TRANSLATIONS = {
         "Converter": "Konverter",
         "Watchlist": "Daftar Pantauan",
         "Admin Panel": "Panel Admin",
+        "AI Research": "Riset AI",
+        "Risk Center": "Pusat Risiko",
+        "Performance Coach": "Performance Coach",
+        "Market": "Pasar",
+        "Insights": "Analisis",
+        "Tools": "Alat",
+        "Preferences": "Preferensi",
+        "Display currency": "Mata uang tampilan",
     },
 }
 

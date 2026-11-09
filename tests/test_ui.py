@@ -49,6 +49,10 @@ def test_apply_theme_uses_light_palette_without_global_text_overrides(monkeypatc
     assert '[data-testid="stNumberInput"] button' in css
     assert '[data-testid="stProgress"] [role="progressbar"]' in css
     assert "@media (max-width: 768px)" in css
+    assert "@media (prefers-reduced-motion: reduce)" in css
+    assert "@keyframes cs-enter" in css
+    assert ".landing-hero-panel" in css
+    assert ".auth-promo" in css
     assert '[data-testid="stSidebarCollapseButton"]' in css
     assert rendered["options"] == {"unsafe_allow_html": True}
 
@@ -210,6 +214,13 @@ def test_market_indicator_colors_match_theme_tokens():
     assert dark["market_chart"] == "#3B82F6"
 
 
+def test_user_widget_keys_do_not_share_state_across_accounts():
+    assert ui.user_state_key("watchlist", "user-a") == "watchlist_user-a"
+    assert ui.user_state_key("watchlist", "user-a") != ui.user_state_key(
+        "watchlist", "user-b"
+    )
+
+
 def test_render_coin_logo_uses_https_asset_and_asset_specific_fallback():
     markup = ui.render_coin_logo(
         "bitcoin", "https://assets.coingecko.com/coins/images/1/large/bitcoin.png", 24, "BTC"
@@ -268,6 +279,8 @@ def test_app_theme_toggle_reruns_without_resetting_page_state():
     assert not app.exception
     assert app.session_state["show_landing"] is False
     assert any(element.label == "Email" for element in app.text_input)
+    assert any("Selamat datang" in element.value for element in app.markdown)
+    assert any("auth-promo" in element.value for element in app.markdown)
     assert any(
         "--cs-main-background: #F8F7FC;" in element.value
         for element in app.markdown
