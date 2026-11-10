@@ -39,7 +39,10 @@ def build_prompt(
 
 def ask_gemini(api_key: str, prompt: str) -> str:
     """Generate an answer with Gemini; import the SDK only when requested."""
-    import google.generativeai as genai
+    try:
+        import google.generativeai as genai
+    except Exception as exc:
+        raise RuntimeError(f"Gemini SDK tidak dapat dimuat: {exc}") from exc
 
     model = genai.GenerativeModel("gemini-2.5-flash", api_key=api_key)
     response = model.generate_content(prompt)

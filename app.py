@@ -15,6 +15,7 @@ from chainscope import (
     ui, api, auth, compare, config, converter, db, formatting,
     indicators, journal_calc, performance_coach, report, search, telegram,
     admin, payment, ai_assistant, exports, research, risk,
+    views_market, views_finance, views_web3,
 )
 
 # 1. KONFIGURASI HALAMAN
@@ -44,7 +45,7 @@ if "user" not in st.session_state or st.session_state.user is None:
             "<h1>Kenali pasar. Kelola langkah investasi Anda.</h1>"
             "<p>Pantau aset crypto, catat transaksi, dan evaluasi portofolio "
             "dalam satu dashboard yang dirancang agar mudah dipahami sejak awal.</p>"
-            </div>
+            "</div>"
             "</div></div>",
             unsafe_allow_html=True,
         )
@@ -1000,15 +1001,35 @@ with st.sidebar:
 
     menu_groups = [
         (
-            "Market",
+            "Overview",
             {
                 "market-overview": ("Market Overview", "dashboard"),
-                "market-data": ("Market Data", "candlestick_chart"),
-                "technical-analysis": ("Technical Analysis", "show_chart"),
+                "financial-overview": ("Financial Overview", "account_balance"),
             },
         ),
         (
-            "Portfolio",
+            "Market Intelligence",
+            {
+                "market-data": ("Crypto Market", "candlestick_chart"),
+                "stock-market": ("Stock Market (IDX & US)", "show_chart"),
+                "forex-market": ("Forex Market", "currency_exchange"),
+                "multi-exchange": ("Multi-Exchange Analytics", "swap_horiz"),
+            },
+        ),
+        (
+            "Analysis",
+            {
+                "technical-analysis": ("Technical Analysis", "trending_up"),
+                "fundamental-analysis": ("Fundamental Analysis", "analytics"),
+                "hedge-fund-lab": ("Hedge Fund Strategy Lab", "science"),
+                "performance-coach": ("Performance Coach", "insights"),
+                "risk-center": ("Risk Center", "health_and_safety"),
+                "relative-strategy": ("Strategi Relatif", "compare_arrows"),
+                "ai-research": ("AI Research", "manage_search"),
+            },
+        ),
+        (
+            "Trading",
             {
                 "portfolio": ("Portfolio", "account_balance_wallet"),
                 "trading-journal": ("Trading Journal", "receipt_long"),
@@ -1017,20 +1038,31 @@ with st.sidebar:
             },
         ),
         (
-            "Insights",
+            "Personal Finance",
             {
-                "performance-coach": ("Performance Coach", "insights"),
-                "risk-center": ("Risk Center", "health_and_safety"),
-                "relative-strategy": ("Strategi Relatif", "compare_arrows"),
-                "ai-research": ("AI Research", "manage_search"),
-                "pdf-report": ("Laporan PDF", "description"),
+                "income-expense": ("Income & Expenses", "payments"),
+                "budget-management": ("Budget Management", "pie_chart"),
+                "savings-goals": ("Savings Goals", "savings"),
+                "assets-liabilities": ("Assets & Liabilities", "account_balance"),
+                "portfolio-reconciliation": ("Portfolio Reconciliation", "sync_alt"),
+                "financial-education": ("Financial Education", "school"),
+            },
+        ),
+        (
+            "Web3 & DEX",
+            {
+                "web3-dashboard": ("Wallet Dashboard & Connect", "wallet"),
+                "dex-analytics": ("DEX Analytics & Pools", "water_drop"),
+                "dex-swap": ("DEX Swap Aggregator", "swap_calls"),
+                "token-safety": ("Token Safety & Security Audit", "security"),
             },
         ),
         (
             "Tools",
             {
-                "converter": ("Converter", "currency_exchange"),
-                "wallet": ("Personal Wallet", "account_balance"),
+                "converter": ("Converter", "calculate"),
+                "pdf-report": ("Laporan PDF", "description"),
+                "wallet": ("Personal Wallet", "storage"),
             },
         ),
     ]
@@ -1201,7 +1233,13 @@ elif current_page == "converter":
         market_df = cached_market_data(currency)
     except api.ChainScopeAPIError as exc:
         data_error = str(exc)
-elif current_page != "wallet":
+elif current_page not in {
+    "wallet", "financial-overview", "stock-market", "forex-market",
+    "multi-exchange", "fundamental-analysis", "hedge-fund-lab",
+    "income-expense", "budget-management", "savings-goals",
+    "assets-liabilities", "portfolio-reconciliation", "financial-education",
+    "web3-dashboard", "dex-analytics", "dex-swap", "token-safety"
+}:
     try:
         market_df = cached_market_data(currency)
         all_coins = cached_all_coins()
@@ -2844,3 +2882,51 @@ elif current_page == "admin-panel" and is_dev:
                         admin.update_user_subscription(uid, new_tier, str(new_end))
                         st.success("Masa aktif diperbarui.")
                         st.rerun()
+
+elif current_page == "financial-overview":
+    views_finance.render_financial_overview_page(user.id, currency=currency, dark_mode=dark_mode)
+
+elif current_page == "stock-market":
+    views_market.render_stock_market_page(currency=currency, dark_mode=dark_mode)
+
+elif current_page == "forex-market":
+    views_market.render_forex_market_page(dark_mode=dark_mode)
+
+elif current_page == "multi-exchange":
+    views_market.render_multi_exchange_page(dark_mode=dark_mode)
+
+elif current_page == "fundamental-analysis":
+    views_market.render_fundamental_analysis_page(dark_mode=dark_mode)
+
+elif current_page == "hedge-fund-lab":
+    views_market.render_hedge_fund_lab_page(market_df, dark_mode=dark_mode)
+
+elif current_page == "income-expense":
+    views_finance.render_income_expense_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "budget-management":
+    views_finance.render_budget_management_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "savings-goals":
+    views_finance.render_savings_goals_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "assets-liabilities":
+    views_finance.render_assets_liabilities_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "portfolio-reconciliation":
+    views_finance.render_portfolio_reconciliation_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "financial-education":
+    views_finance.render_financial_education_page(dark_mode=dark_mode)
+
+elif current_page == "web3-dashboard":
+    views_web3.render_web3_dashboard_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "dex-analytics":
+    views_web3.render_dex_analytics_page(dark_mode=dark_mode)
+
+elif current_page == "dex-swap":
+    views_web3.render_dex_swap_page(user.id, dark_mode=dark_mode)
+
+elif current_page == "token-safety":
+    views_web3.render_token_safety_page(dark_mode=dark_mode)

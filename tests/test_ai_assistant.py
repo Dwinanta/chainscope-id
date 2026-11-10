@@ -1,3 +1,5 @@
+import sys
+import types
 import pandas as pd
 import pytest
 
@@ -40,8 +42,6 @@ def test_build_prompt_includes_data_question_and_risk_disclaimer():
 
 
 def test_ask_gemini_uses_configured_api_key(monkeypatch):
-    from google import generativeai as genai
-
     calls = {}
 
     class FakeModel:
@@ -53,7 +53,9 @@ def test_ask_gemini_uses_configured_api_key(monkeypatch):
             calls["prompt"] = prompt
             return type("Response", (), {"text": "Analisis dengan risiko."})()
 
-    monkeypatch.setattr(genai, "GenerativeModel", FakeModel)
+    fake_genai = types.ModuleType("google.generativeai")
+    fake_genai.GenerativeModel = FakeModel
+    monkeypatch.setitem(sys.modules, "google.generativeai", fake_genai)
 
     answer = ai_assistant.ask_gemini("test-key", "prompt")
 
