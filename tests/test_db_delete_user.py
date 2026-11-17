@@ -75,4 +75,26 @@ def test_delete_user_falls_back_to_app_data_without_service_role(monkeypatch):
     assert ("alerts", "user_id", "user-123") in fake_supabase.calls
     assert ("watchlists", "user_id", "user-123") in fake_supabase.calls
     assert ("profiles", "id", "user-123") in fake_supabase.calls
+    assert not any(call[0] == "personal_incomes" for call in fake_supabase.calls)
     assert not any(call[0] == "auth.delete_user" for call in fake_supabase.calls)
+
+
+def test_delete_user_propagates_database_errors(monkeypatch):
+    import pytest
+
+    class FailingSupabase:
+        def table(self, name):
+            raise RuntimeError(f"Database failure on {name}")
+
+    monkeypatch.setattr(db.st, "secrets", {"SUPABASE_URL": "https://example.supabase.co"})
+    monkeypatch.setattr(db, "get_supabase", lambda: FailingSupabase())
+
+    with pytest.raises(RuntimeError, match="Database failure on trades"):
+        db.delete_user("user-123")
+
+
+def test_delete_user_rejects_blank_user_id():
+    import pytest
+
+    with pytest.raises(ValueError, match="ID pengguna wajib diisi"):
+        db.delete_user("   ")

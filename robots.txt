@@ -1,0 +1,14 @@
+# Robots.txt for ChainScope ID
+# https://chainscope.id
+
+User-agent: *
+Allow: /
+Allow: /sitemap.xml
+
+# Protect authenticated application dashboards and private user data
+Disallow: /?*access_token=*
+Disallow: /?*refresh_token=*
+Disallow: /admin
+Disallow: /app
+
+Sitemap: https://chainscope.id/sitemap.xml

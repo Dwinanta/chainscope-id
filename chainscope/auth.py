@@ -1,23 +1,69 @@
 """Sistem Autentikasi Streamlit dengan Supabase."""
+import logging
+import socket
+
+import httpx
 import streamlit as st
 from chainscope import db
 
+logger = logging.getLogger(__name__)
+
+_DNS_ERROR_MARKERS = (
+    "Name or service not known",
+    "getaddrinfo failed",
+    "Temporary failure in name resolution",
+    "nodename nor servname provided",
+    "No address associated with hostname",
+)
+
+
+def _is_dns_error(exc: BaseException) -> bool:
+    """Periksa apakah exception berasal dari kegagalan resolusi DNS."""
+    current: BaseException | None = exc
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        if isinstance(current, socket.gaierror):
+            return True
+        text = str(current)
+        if any(marker in text for marker in _DNS_ERROR_MARKERS):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def format_auth_error(exc: Exception) -> str:
+    """Format error autentikasi agar masalah DNS, konfigurasi, dan auth terbedakan jelas."""
+    if isinstance(exc, db.SupabaseConfigError):
+        return f"Konfigurasi Supabase bermasalah: {exc}"
+    if _is_dns_error(exc):
+        host = db.get_configured_supabase_host()
+        return (
+            f"Gagal terhubung ke server Supabase (DNS Error pada host '{host}'): {exc}. "
+            "Periksa SUPABASE_URL pada konfigurasi Secrets (pastikan bernilai "
+            "https://tllnodujibcrkffmtseb.supabase.co tanpa tanda kutip ganda atau spasi)."
+        )
+    if isinstance(exc, httpx.HTTPError):
+        return f"Gagal menghubungi layanan Supabase (Network/HTTPS Error): {exc}"
+    return str(exc)
+
+
 def login_user(email, password):
-    supabase = db.get_supabase()
+    clean_email = email.strip() if isinstance(email, str) else ""
+    if not clean_email or not password:
+        return False, "Email dan password wajib diisi."
     try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        supabase = db.get_supabase()
+        res = supabase.auth.sign_in_with_password({"email": clean_email, "password": password})
         st.session_state.user = res.user
         st.session_state.session = res.session
-        
-        # SIMPAN TOKEN KE URL AGAR TIDAK HILANG SAAT REFRESH
-        st.query_params["access_token"] = res.session.access_token
-        st.query_params["refresh_token"] = res.session.refresh_token
         return True, "Login berhasil"
     except Exception as e:
-        return False, str(e)
+        return False, format_auth_error(e)
+
 
 def check_session():
-    """Cek apakah ada sesi login di memori atau di URL."""
+    """Cek apakah ada sesi login di memori atau di parameter URL."""
     if "user" in st.session_state and st.session_state.user is not None:
         return
 
@@ -25,41 +71,49 @@ def check_session():
     refresh_token = st.query_params.get("refresh_token")
 
     if access_token and refresh_token:
-        supabase = db.get_supabase()
         try:
+            supabase = db.get_supabase()
             session = supabase.auth.set_session(access_token, refresh_token)
             st.session_state.user = session.user
             st.session_state.session = session.session
-        except Exception:
-            # Jika token kadaluarsa, bersihkan URL
+        except Exception as exc:
+            logger.warning("Gagal memulihkan sesi dari parameter URL: %s", exc)
+        finally:
+            # Segera bersihkan token dari URL untuk mencegah kebocoran via history atau header referer
             st.query_params.clear()
 
+
 def register_user(email, password):
-    supabase = db.get_supabase()
+    clean_email = email.strip() if isinstance(email, str) else ""
+    if not clean_email or not password:
+        return False, "Email dan password wajib diisi."
     try:
-        res = supabase.auth.sign_up({"email": email, "password": password})
+        supabase = db.get_supabase()
+        supabase.auth.sign_up({"email": clean_email, "password": password})
         return True, "Registrasi berhasil. Silakan login."
     except Exception as e:
-        return False, str(e)
+        return False, format_auth_error(e)
+
 
 def request_password_reset(email: str) -> tuple[bool, str]:
     """Request a password reset email through Supabase Auth."""
-    supabase = db.get_supabase()
     try:
+        supabase = db.get_supabase()
         supabase.auth.reset_password_for_email(email)
         return (
             True,
             "Jika email terdaftar, link reset password telah dikirim. Cek inbox Anda.",
         )
     except Exception as e:
-        return False, str(e)
+        return False, format_auth_error(e)
+
 
 def logout_user():
-    supabase = db.get_supabase()
     try:
+        supabase = db.get_supabase()
         supabase.auth.sign_out()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Gagal sign_out dari Supabase: %s", exc)
     # Bersihkan memori dan URL
     st.session_state.user = None
     st.session_state.session = None

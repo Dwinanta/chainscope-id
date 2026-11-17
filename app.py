@@ -15,7 +15,7 @@ from chainscope import (
     ui, api, auth, compare, config, converter, db, formatting,
     indicators, journal_calc, performance_coach, report, search, telegram,
     admin, payment, ai_assistant, exports, research, risk,
-    views_market, views_finance, views_web3,
+    views_market, views_finance, views_web3, landing_page,
 )
 
 # 1. KONFIGURASI HALAMAN
@@ -36,95 +36,9 @@ if "user" not in st.session_state or st.session_state.user is None:
     dark_mode = st.toggle("Dark Mode", key="dark_mode")
     ui.apply_theme(dark_mode)
     if st.session_state.show_landing:
-        st.markdown(
-            "<div class='landing-shell'><div class='landing-hero-panel'>"
-            "<span class='landing-eyebrow'>"
-            "<span class='auth-brand-mark'>C</span> ChainScope ID · Market intelligence"
-            "</span>"
-            "<div class='landing-hero'>"
-            "<h1>Kenali pasar. Kelola langkah investasi Anda.</h1>"
-            "<p>Pantau aset crypto, catat transaksi, dan evaluasi portofolio "
-            "dalam satu dashboard yang dirancang agar mudah dipahami sejak awal.</p>"
-            "</div>"
-            "</div></div>",
-            unsafe_allow_html=True,
-        )
-
-        action_col, secondary_action_col, _ = st.columns([1, 1, 3], gap="small")
-        with action_col:
-            if st.button(
-                "Mulai gratis",
-                type="primary",
-                width="stretch",
-                key="landing_get_started",
-            ):
-                st.session_state.show_landing = False
-                st.rerun()
-        with secondary_action_col:
-            if st.button(
-                "Saya sudah punya akun",
-                width="stretch",
-                key="landing_sign_in",
-            ):
-                st.session_state.show_landing = False
-                st.rerun()
-
-        st.markdown(
-            "<div class='landing-section-title'>Semua yang Anda perlukan untuk mulai</div>"
-            "<p style='color:var(--cs-secondary-text);margin-top:0'>"
-            "Mulai dari memantau harga hingga memahami hasil transaksi Anda.</p>",
-            unsafe_allow_html=True,
-        )
-        feature_cols = st.columns(3)
-        features = [
-            (
-                "Pasar dalam satu tampilan",
-                "Lihat harga, pergerakan, dan indikator pasar crypto dengan konteks mata uang pilihan Anda.",
-            ),
-            (
-                "Catatan dan portofolio",
-                "Simpan transaksi jurnal dan pantau posisi berdasarkan aset serta strategi.",
-            ),
-            (
-                "Evaluasi yang lebih jelas",
-                "Tinjau performa, konsentrasi aset, dan skenario risiko tanpa mengeksekusi perdagangan.",
-            ),
-        ]
-        for column, (title, description) in zip(feature_cols, features):
-            with column:
-                st.markdown(
-                    f"<div class='landing-card'><h3>{escape(title)}</h3>"
-                    f"<p>{description}</p></div>",
-                    unsafe_allow_html=True,
-                )
-
-        st.markdown(
-            "<div class='landing-section-title'>Mulai dalam tiga langkah</div>",
-            unsafe_allow_html=True,
-        )
-        steps = [
-            ("1", "Jelajahi", "Pilih mata uang dan aset yang ingin Anda pantau."),
-            ("2", "Catat", "Tambahkan transaksi Anda ke jurnal untuk menjaga riwayat tetap rapi."),
-            ("3", "Evaluasi", "Gunakan ringkasan portofolio dan risiko untuk membantu meninjau keputusan."),
-        ]
-        step_cols = st.columns(3)
-        for column, (number, title, description) in zip(step_cols, steps):
-            with column:
-                st.markdown(
-                    f"<div class='landing-card'><div class='landing-step-number'>{number}</div>"
-                    f"<h3>{escape(title)}</h3><p>{description}</p></div>",
-                    unsafe_allow_html=True,
-                )
-
-        st.markdown(
-            "<div class='landing-disclaimer'>Informasi pasar dapat berubah dan "
-            "dapat terlambat. Analitik dan kalkulator bersifat informasional, "
-            "bukan rekomendasi atau jaminan hasil investasi.</div>"
-            "<div class='landing-footer'>ChainScope ID · Dibuat untuk investor "
-            "dan trader Indonesia.</div>",
-            unsafe_allow_html=True,
-        )
+        landing_page.render_institutional_landing_page(dark_mode=dark_mode)
     else:
+        landing_page.render_seo_headers(is_authenticated=False)
         if st.button("← Kembali ke halaman depan", key="back_to_landing"):
             st.session_state.show_landing = True
             st.rerun()
@@ -132,6 +46,7 @@ if "user" not in st.session_state or st.session_state.user is None:
     st.stop()
 
 user = st.session_state.user
+landing_page.render_seo_headers(is_authenticated=True)
 user_profile = db.get_user_profile(user.id)
 is_dev = user_profile.get("role") == "dev"
 sub_tier = user_profile.get("subscription_tier", "free").title()
@@ -1235,7 +1150,7 @@ elif current_page == "converter":
         data_error = str(exc)
 elif current_page not in {
     "wallet", "financial-overview", "stock-market", "forex-market",
-    "multi-exchange", "fundamental-analysis", "hedge-fund-lab",
+    "multi-exchange", "fundamental-analysis",
     "income-expense", "budget-management", "savings-goals",
     "assets-liabilities", "portfolio-reconciliation", "financial-education",
     "web3-dashboard", "dex-analytics", "dex-swap", "token-safety"
@@ -2801,7 +2716,13 @@ elif current_page == "wallet":
 
     render_personal_wallet(dark_mode=dark_mode, user_id=user.id)
 
-elif current_page == "admin-panel" and is_dev:
+elif current_page == "admin-panel":
+    if not is_dev:
+        st.warning("Halaman Admin Panel hanya dapat diakses oleh akun pengembang (role: dev).")
+        st.session_state.current_page = "market-overview"
+        if st.button("Kembali ke Beranda Pasar", type="primary", key="btn_return_dev_gate"):
+            st.rerun()
+        st.stop()
     st.markdown(
         f"<h1>{config.translate(language, 'Admin Panel')}</h1>",
         unsafe_allow_html=True,
@@ -2930,3 +2851,12 @@ elif current_page == "dex-swap":
 
 elif current_page == "token-safety":
     views_web3.render_token_safety_page(dark_mode=dark_mode)
+
+else:
+    st.warning("Halaman yang diminta tidak ditemukan atau tidak tersedia.")
+    st.session_state.current_page = "market-overview"
+    if st.button("Kembali ke Beranda Pasar", type="primary", key="btn_fallback_home"):
+        st.rerun()
+
+# 5. FOOTER GLOBAL INSTITUSIONAL
+landing_page.render_institutional_footer(dark_mode=dark_mode, is_authenticated=True)

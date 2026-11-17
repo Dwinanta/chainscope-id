@@ -1,17 +1,157 @@
 """Modul koneksi database dan query Supabase."""
+import base64
 from datetime import datetime, timedelta
+import json
+import logging
+import os
+import re
+from urllib.parse import urlparse
 
 import streamlit as st
 from supabase import create_client, Client
 
+logger = logging.getLogger(__name__)
+
+
+class SupabaseConfigError(ValueError):
+    """Error ketika konfigurasi SUPABASE_URL atau SUPABASE_KEY tidak valid."""
+
+
+def _clean_secret_value(value: object) -> str:
+    """Bersihkan spasi, karakter kontrol/BOM, dan tanda kutip berlebih pada secret."""
+    if not isinstance(value, str):
+        return ""
+    cleaned = value.strip().strip("\ufeff\r\n\t ")
+    while len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
+        cleaned = cleaned[1:-1].strip()
+    cleaned = cleaned.strip('"\' \t\r\n\ufeff')
+    return cleaned
+
+
+def extract_supabase_project_ref(api_key: str) -> str | None:
+    """Ekstrak klaim 'ref' (project ID) dari payload JWT Supabase tanpa mencetak key."""
+    cleaned_key = _clean_secret_value(api_key)
+    parts = cleaned_key.split(".")
+    if len(parts) != 3:
+        return None
+    payload_b64 = parts[1]
+    padding = "=" * (-len(payload_b64) % 4)
+    try:
+        decoded_bytes = base64.urlsafe_b64decode(payload_b64 + padding)
+        payload = json.loads(decoded_bytes.decode("utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("iss") != "supabase":
+        return None
+    ref = payload.get("ref")
+    if isinstance(ref, str) and re.fullmatch(r"[a-z0-9]{10,40}", ref):
+        return ref
+    return None
+
+
+def normalize_supabase_url(raw_url: object, api_key: str = "") -> str:
+    """Validasi dan normalisasi SUPABASE_URL ke format https://<hostname>."""
+    cleaned = _clean_secret_value(raw_url)
+    if not cleaned:
+        raise SupabaseConfigError(
+            "SUPABASE_URL atau SUPABASE_KEY belum di-set di secrets.toml"
+        )
+
+    # Perbaiki skema ganda seperti https://https://...
+    cleaned = re.sub(
+        r"^(https?://)+",
+        lambda m: "https://" if "https://" in m.group(0).lower() else "http://",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+    if "://" not in cleaned and cleaned.lower().endswith(".supabase.co"):
+        cleaned = f"https://{cleaned}"
+
+    parsed = urlparse(cleaned)
+    scheme = parsed.scheme.lower()
+    hostname = parsed.hostname or ""
+    netloc = parsed.netloc or ""
+
+    if (
+        scheme not in {"http", "https"}
+        or not hostname
+        or any(ch.isspace() or ch in {'"', "'", "\\"} for ch in netloc)
+        or ("." not in hostname and hostname != "localhost")
+    ):
+        raise SupabaseConfigError(
+            f"Format SUPABASE_URL tidak valid ({hostname or cleaned!r}). "
+            "Gunakan format https://<project-ref>.supabase.co"
+        )
+
+    jwt_ref = extract_supabase_project_ref(api_key)
+    if jwt_ref and hostname.lower().endswith(".supabase.co"):
+        expected_host = f"{jwt_ref}.supabase.co"
+        if hostname.lower() != expected_host.lower():
+            raise SupabaseConfigError(
+                f"Hostname SUPABASE_URL ({hostname}) tidak sesuai dengan project "
+                f"pada SUPABASE_KEY ({expected_host}). Periksa konfigurasi Secrets."
+            )
+
+    return f"{scheme}://{netloc}"
+
+
+def _read_secret_or_env(key_name: str, section_field: str = "") -> str:
+    """Baca konfigurasi dari st.secrets, section [supabase], atau environment variable."""
+    raw = ""
+    try:
+        raw = st.secrets.get(key_name, "")
+        if not raw and section_field:
+            section = st.secrets.get("supabase", {})
+            if isinstance(section, dict):
+                raw = section.get(section_field, "") or section.get(key_name, "")
+    except Exception:
+        raw = ""
+    if not raw:
+        raw = os.environ.get(key_name, "")
+    return _clean_secret_value(raw)
+
+
+def get_supabase_config() -> tuple[str, str]:
+    """Ambil dan validasi pasangan (url, key) Supabase."""
+    raw_url = _read_secret_or_env("SUPABASE_URL", "url")
+    key = _read_secret_or_env("SUPABASE_KEY", "key")
+    if not raw_url or not key:
+        raise SupabaseConfigError(
+            "SUPABASE_URL atau SUPABASE_KEY belum di-set di secrets.toml"
+        )
+    url = normalize_supabase_url(raw_url, key)
+    return url, key
+
+
+def get_configured_supabase_host() -> str:
+    """Kembalikan hostname SUPABASE_URL (aman untuk pesan diagnostik tanpa membocorkan key)."""
+    raw_url = _read_secret_or_env("SUPABASE_URL", "url")
+    if not raw_url:
+        return "<SUPABASE_URL kosong>"
+    try:
+        parsed = urlparse(raw_url if "://" in raw_url else f"https://{raw_url}")
+        return parsed.hostname or raw_url
+    except Exception:
+        return "<SUPABASE_URL tidak valid>"
+
+
 @st.cache_resource
+def _create_cached_supabase_client(url: str, key: str) -> Client:
+    """Inisialisasi Supabase client yang di-cache berdasarkan pasangan (url, key)."""
+    return create_client(url, key)
+
+
 def get_supabase() -> Client:
     """Inisialisasi Supabase client (di-cache agar tidak reconnect terus)."""
-    url = st.secrets.get("SUPABASE_URL", "")
-    key = st.secrets.get("SUPABASE_KEY", "")
-    if not url or not key:
-        raise ValueError("SUPABASE_URL atau SUPABASE_KEY belum di-set di secrets.toml")
-    return create_client(url, key)
+    url, key = get_supabase_config()
+    return _create_cached_supabase_client(url, key)
+
+
+get_supabase.clear = _create_cached_supabase_client.clear
+
 
 def get_user_profile(user_id: str) -> dict:
     supabase = get_supabase()
@@ -23,6 +163,7 @@ def get_user_profile(user_id: str) -> dict:
     )
     return res.data[0] if res.data else {}
 
+
 def upgrade_to_premium(user_id: str):
     """Upgrade a profile to premium for 30 days."""
     subscription_end = (datetime.now() + timedelta(days=30)).date().isoformat()
@@ -31,34 +172,37 @@ def upgrade_to_premium(user_id: str):
         "subscription_end": subscription_end,
     }).eq("id", user_id).execute()
 
+
 def delete_user(user_id: str) -> bool:
     """Delete a user's app data and, when configured, their Auth account.
 
     Returns True when the Auth account was deleted. Without a service role
     key, only app data can be removed; the Auth account remains.
     """
-    if not user_id:
+    if not isinstance(user_id, str) or not user_id.strip():
         raise ValueError("ID pengguna wajib diisi.")
+    clean_user_id = user_id.strip()
 
-    service_role_key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
-    supabase_url = st.secrets.get("SUPABASE_URL", "")
+    service_role_key = _read_secret_or_env("SUPABASE_SERVICE_ROLE_KEY", "service_role_key")
+    raw_supabase_url = _read_secret_or_env("SUPABASE_URL", "url")
     if service_role_key:
-        if not supabase_url:
+        if not raw_supabase_url:
             raise ValueError("SUPABASE_URL belum diatur di secrets.toml.")
+        supabase_url = normalize_supabase_url(raw_supabase_url, service_role_key)
         supabase = create_client(supabase_url, service_role_key)
     else:
         supabase = get_supabase()
 
     for table in ("trades", "alerts", "watchlists"):
-        supabase.table(table).delete().eq("user_id", user_id).execute()
+        supabase.table(table).delete().eq("user_id", clean_user_id).execute()
         if table == "trades":
             _invalidate_user_trades_cache()
-    supabase.table("profiles").delete().eq("id", user_id).execute()
+    supabase.table("profiles").delete().eq("id", clean_user_id).execute()
 
     if not service_role_key:
         return False
 
-    supabase.auth.admin.delete_user(user_id)
+    supabase.auth.admin.delete_user(clean_user_id)
     return True
 
 def add_trade(user_id: str, coin_id: str, symbol: str, side: str, amount: float, price_usd: float, trade_time: str, source: str = "manual", strategy_tag: str = "Swing"):

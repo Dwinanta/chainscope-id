@@ -155,7 +155,15 @@ def render_hedge_fund_lab_page(market_data: pd.DataFrame, dark_mode: bool = Fals
     st.markdown("<h1>Hedge Fund Strategy Lab (Backtesting)</h1>", unsafe_allow_html=True)
     st.caption("Simulasikan strategi kuantitatif secara historis tanpa lookahead bias dan bandingkan dengan benchmark Buy & Hold.")
 
-    c1, c2, c3 = st.columns(3)
+    c0, c1, c2, c3 = st.columns([1.3, 1.7, 1, 1])
+    with c0:
+        if isinstance(market_data, pd.DataFrame) and not market_data.empty and "id" in market_data.columns and "symbol_upper" in market_data.columns:
+            coin_options = list(zip(market_data["id"], market_data["name"].astype(str) + " (" + market_data["symbol_upper"].astype(str) + ")"))
+            selected_coin_tuple = st.selectbox("Pilih Aset:", coin_options, format_func=lambda x: x[1])
+            selected_coin = selected_coin_tuple[0] if selected_coin_tuple else "bitcoin"
+        else:
+            selected_coin = "bitcoin"
+            st.selectbox("Aset:", [("bitcoin", "Bitcoin (BTC)")], format_func=lambda x: x[1])
     with c1:
         strategy = st.selectbox("Pilih Strategi Algoritmik:", [
             ("sma_cross", "SMA Trend Following (Golden/Death Cross)"),
@@ -167,10 +175,10 @@ def render_hedge_fund_lab_page(market_data: pd.DataFrame, dark_mode: bool = Fals
     with c3:
         fee_pct = st.number_input("Biaya Transaksi / Slippage per Trade (%):", min_value=0.0, value=0.1, step=0.05)
 
-    # Use Bitcoin or available price history
+    # Use selected asset price history
     from chainscope import api
     try:
-        hist_df = api.fetch_price_history("bitcoin", "usd", days=180)
+        hist_df = api.fetch_price_history(selected_coin, "usd", days=180)
     except Exception:
         hist_df = pd.DataFrame()
 
